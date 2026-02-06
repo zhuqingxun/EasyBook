@@ -93,7 +93,7 @@ class TestGatewayService:
         """无健康检查记录时回退到配置列表第一个"""
         service = GatewayService()
         # 模拟 async_session_maker 为 None（DB 未初始化）
-        with patch("app.services.gateway_service.async_session_maker", None):
+        with patch("app.database.async_session_maker", None):
             result = await service.get_best_gateway()
             assert result == service.gateways[0]
 
@@ -101,7 +101,7 @@ class TestGatewayService:
     async def test_get_alternatives_without_db(self):
         """无 DB 时从配置列表返回备用网关"""
         service = GatewayService()
-        with patch("app.services.gateway_service.async_session_maker", None):
+        with patch("app.database.async_session_maker", None):
             alternatives = await service.get_alternatives("QmTest123", "ipfs.io")
             assert len(alternatives) <= 3
             assert all("ipfs.io" not in url for url in alternatives)

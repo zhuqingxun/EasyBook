@@ -7,7 +7,7 @@ import httpx
 from sqlalchemy import select
 
 from app.config import settings
-from app.database import async_session_maker
+from app import database as db
 from app.models.gateway_health import GatewayHealth
 
 logger = logging.getLogger(__name__)
@@ -40,7 +40,7 @@ class GatewayService:
 
     async def check_all_gateways(self) -> None:
         """并发检测所有网关，更新数据库"""
-        if async_session_maker is None:
+        if db.async_session_maker is None:
             logger.error("数据库未初始化，跳过网关健康检查")
             print("[GATEWAY] 数据库未初始化，跳过健康检查", flush=True)
             return
@@ -52,7 +52,7 @@ class GatewayService:
             tasks = [self.check_single_gateway(gw, client) for gw in self.gateways]
             results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        async with async_session_maker() as session:
+        async with db.async_session_maker() as session:
             for result in results:
                 if isinstance(result, Exception):
                     logger.error("Unexpected error during gateway check: %s", result, exc_info=result)
@@ -89,10 +89,10 @@ class GatewayService:
 
     async def get_best_gateway(self) -> str | None:
         """返回响应时间最快的可用网关"""
-        if async_session_maker is None:
+        if db.async_session_maker is None:
             return self.gateways[0] if self.gateways else None
 
-        async with async_session_maker() as session:
+        async with db.async_session_maker() as session:
             stmt = (
                 select(GatewayHealth)
                 .where(GatewayHealth.available.is_(True))
@@ -113,11 +113,11 @@ class GatewayService:
 
     async def get_alternatives(self, cid: str, exclude_gateway: str) -> list[str]:
         """返回备用网关 URL 列表"""
-        if async_session_maker is None:
+        if db.async_session_maker is None:
             alternatives = [gw for gw in self.gateways if gw != exclude_gateway]
             return [self.build_download_url(cid, gw) for gw in alternatives[:3]]
 
-        async with async_session_maker() as session:
+        async with db.async_session_maker() as session:
             stmt = (
                 select(GatewayHealth)
                 .where(
