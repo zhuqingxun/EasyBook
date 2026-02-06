@@ -75,6 +75,20 @@ Vue3 前端 (:3000) → FastAPI 后端 (:8000) → Meilisearch (全文检索)
 - **IPFS 网关**：`cloudflare-ipfs.com` 已退役(2024.8)，不要使用
 - **Vue3 + Naive UI**：不能在 prop 上直接用 `v-model:value="propName"`，需用 `:value` + `@update:value`
 
+## Zeabur Production Deployment
+
+Zeabur 服务名称与角色映射：
+
+| Zeabur 服务名 | 角色 | Root Directory | 部署方式 |
+|---|---|---|---|
+| `easybook-mil` | **后端 API** | `/backend` | Dockerfile |
+| `easybook-hanies` | **前端** | `/frontend` | 静态站点 |
+| `meilisearch` | 搜索引擎 | - | Marketplace 模板 |
+| `postgresql` | 数据库 | - | Marketplace 模板 |
+
+- 后端 `MEILI_MASTER_KEY` 通过 `${meilisearch.PASSWORD}` 跨服务引用
+- Dockerfile 必须设置 `ENV PYTHONUNBUFFERED=1`，否则容器崩溃时日志不可见
+
 ## Code Conventions
 
 - Python 3.12+，类型提示，ruff lint（line-length=100）
