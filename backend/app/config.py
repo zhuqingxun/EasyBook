@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     # 应用配置
     DEBUG: bool = False
     LOG_LEVEL: str = "INFO"
-    LOG_FILE: str = "logs/app.log"
+    LOG_FILE: str = ""
 
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
