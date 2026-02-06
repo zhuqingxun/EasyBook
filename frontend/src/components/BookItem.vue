@@ -5,36 +5,93 @@
       <p v-if="book.author" class="book-author">{{ book.author }}</p>
     </div>
     <div class="book-formats">
-      <n-tooltip
+      <n-button
         v-for="fmt in book.formats"
         :key="fmt.extension"
-        :disabled="!!fmt.download_url"
+        :type="formatColor(fmt.extension)"
+        size="small"
+        :disabled="!fmt.download_url"
+        :loading="loadingMd5 === fmt.md5"
+        @click="handleDownload(fmt)"
       >
-        <template #trigger>
-          <n-button
-            :type="formatColor(fmt.extension)"
-            size="small"
-            :disabled="!fmt.download_url"
-            @click="openDownload(fmt.download_url)"
-          >
-            {{ fmt.extension.toUpperCase() }}
-            <span v-if="fmt.filesize" class="filesize">
-              ({{ formatFileSize(fmt.filesize) }})
-            </span>
-          </n-button>
-        </template>
-        暂无下载链接
-      </n-tooltip>
+        {{ fmt.extension.toUpperCase() }}
+        <span v-if="fmt.filesize" class="filesize">
+          ({{ formatFileSize(fmt.filesize) }})
+        </span>
+      </n-button>
     </div>
+
+    <n-modal
+      :show="showModal"
+      preset="card"
+      :title="`下载: ${modalTitle}`"
+      style="width: 520px; max-width: 90vw"
+      :mask-closable="true"
+      @update:show="showModal = $event"
+    >
+      <div class="gateway-list">
+        <div
+          v-for="gw in gatewayResults"
+          :key="gw.url"
+          class="gateway-row"
+          :class="{ 'gateway-available': gw.status === 'ok' }"
+        >
+          <span class="gateway-icon">
+            <n-spin v-if="gw.status === 'checking'" :size="14" />
+            <span v-else-if="gw.status === 'ok'" style="color: #18a058">&#10003;</span>
+            <span v-else style="color: #d03050">&#10007;</span>
+          </span>
+          <span class="gateway-name">{{ gw.name }}</span>
+          <span class="gateway-latency">
+            <template v-if="gw.status === 'checking'">检测中...</template>
+            <template v-else-if="gw.status === 'ok'">{{ gw.latency }}ms</template>
+            <template v-else>{{ gw.error }}</template>
+          </span>
+          <n-button
+            v-if="gw.status === 'ok'"
+            size="tiny"
+            type="primary"
+            :loading="downloadingUrl === gw.url"
+            @click="openDownload(gw.url)"
+          >
+            {{ downloadingUrl === gw.url ? '下载中' : '下载' }}
+          </n-button>
+        </div>
+      </div>
+      <template #footer>
+        <div style="text-align: right">
+          <n-button @click="showModal = false">关闭</n-button>
+        </div>
+      </template>
+    </n-modal>
   </n-card>
 </template>
 
 <script setup lang="ts">
-import type { BookResult } from '@/types/search'
+import { ref } from 'vue'
+import { useMessage } from 'naive-ui'
+import type { BookResult, BookFormat } from '@/types/search'
+import { getDownloadUrl } from '@/api/modules/search'
 
-defineProps<{
+interface GatewayResult {
+  url: string
+  name: string
+  status: 'checking' | 'ok' | 'fail'
+  latency?: number
+  error?: string
+}
+
+const props = defineProps<{
   book: BookResult
 }>()
+
+const message = useMessage()
+const loadingMd5 = ref('')
+const showModal = ref(false)
+const modalTitle = ref('')
+const gatewayResults = ref<GatewayResult[]>([])
+const currentExtension = ref('')
+const downloadingUrl = ref('')
 
 function formatColor(ext: string): 'success' | 'error' | 'info' | 'warning' {
   const colors: Record<string, 'success' | 'error' | 'info' | 'warning'> = {
@@ -53,9 +110,91 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`
 }
 
-function openDownload(url: string) {
-  if (url) {
-    window.open(url, '_blank')
+function extractGatewayName(url: string): string {
+  try {
+    const hostname = new URL(url).hostname
+    return hostname
+  } catch {
+    return url
+  }
+}
+
+async function checkGateway(gw: GatewayResult): Promise<void> {
+  const start = performance.now()
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 5000)
+
+  try {
+    const response = await fetch(gw.url, {
+      method: 'HEAD',
+      mode: 'cors',
+      signal: controller.signal,
+    })
+    clearTimeout(timer)
+    const latency = Math.round(performance.now() - start)
+
+    if (response.ok) {
+      gw.status = 'ok'
+      gw.latency = latency
+    } else {
+      gw.status = 'fail'
+      gw.error = `HTTP ${response.status}`
+    }
+  } catch {
+    clearTimeout(timer)
+    gw.status = 'fail'
+    gw.error = '超时'
+  }
+}
+
+async function handleDownload(fmt: BookFormat) {
+  if (!fmt.md5) return
+  loadingMd5.value = fmt.md5
+
+  try {
+    const resp = await getDownloadUrl(fmt.md5)
+    const allUrls = [resp.download_url, ...resp.alternatives]
+
+    modalTitle.value = fmt.extension.toUpperCase()
+    currentExtension.value = fmt.extension
+    gatewayResults.value = allUrls.map((url) => ({
+      url,
+      name: extractGatewayName(url),
+      status: 'checking' as const,
+    }))
+
+    showModal.value = true
+
+    // 并发检测所有网关
+    await Promise.allSettled(gatewayResults.value.map(checkGateway))
+  } catch {
+    message.error('获取下载链接失败')
+  } finally {
+    loadingMd5.value = ''
+  }
+}
+
+async function openDownload(baseUrl: string) {
+  const filename = `${props.book.title}.${currentExtension.value}`
+  downloadingUrl.value = baseUrl
+
+  try {
+    const response = await fetch(baseUrl, { mode: 'cors' })
+    if (!response.ok) throw new Error(`HTTP ${response.status}`)
+
+    const blob = await response.blob()
+    const blobUrl = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = blobUrl
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(blobUrl)
+  } catch {
+    message.error('下载失败，请尝试其他网关')
+  } finally {
+    downloadingUrl.value = ''
   }
 }
 </script>
@@ -91,5 +230,45 @@ function openDownload(url: string) {
   margin-left: 4px;
   font-size: 12px;
   opacity: 0.8;
+}
+
+.gateway-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.gateway-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: #f9f9f9;
+}
+
+.gateway-available {
+  background: #f0faf4;
+}
+
+.gateway-icon {
+  width: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.gateway-name {
+  flex: 1;
+  font-family: monospace;
+  font-size: 13px;
+}
+
+.gateway-latency {
+  font-size: 12px;
+  color: #999;
+  min-width: 70px;
+  text-align: right;
 }
 </style>

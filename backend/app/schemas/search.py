@@ -5,6 +5,7 @@ class BookFormat(BaseModel):
     extension: str
     filesize: int | None = None
     download_url: str
+    md5: str = ""
     model_config = ConfigDict(from_attributes=True)
 
 

@@ -50,12 +50,17 @@ def extract_year(year_str: str | None) -> str | None:
     return match.group(1) if match else None
 
 
+def _clean_str(s: str) -> str:
+    """移除 PostgreSQL 不接受的 NUL 字符"""
+    return s.replace("\x00", "")
+
+
 def parse_record(data: dict, converter: opencc.OpenCC) -> dict | None:
     """解析单条 JSONL 记录，返回清洗后的字典或 None（过滤掉）"""
     # 自适应 JSONL 解析：嵌套结构 vs 扁平结构
     fields = data.get("metadata", data)
 
-    title = (fields.get("title") or "").strip()
+    title = _clean_str((fields.get("title") or "").strip())
     if not title:
         return None
 
@@ -71,7 +76,7 @@ def parse_record(data: dict, converter: opencc.OpenCC) -> dict | None:
     if not is_zh_or_en(language):
         return None
 
-    author = (fields.get("author") or "").strip()
+    author = _clean_str((fields.get("author") or "").strip())
 
     # 简繁体转换
     title = converter.convert(title)
@@ -85,6 +90,8 @@ def parse_record(data: dict, converter: opencc.OpenCC) -> dict | None:
         except (ValueError, TypeError):
             filesize = None
 
+    publisher = _clean_str((fields.get("publisher") or "").strip()[:255])
+
     return {
         "title": title,
         "author": author or None,
@@ -94,7 +101,7 @@ def parse_record(data: dict, converter: opencc.OpenCC) -> dict | None:
         "md5": md5,
         "ipfs_cid": (fields.get("ipfs_cid") or "").strip() or None,
         "year": extract_year(fields.get("year")),
-        "publisher": (fields.get("publisher") or "").strip()[:255] or None,
+        "publisher": publisher or None,
     }
 
 

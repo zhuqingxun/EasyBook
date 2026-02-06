@@ -48,6 +48,7 @@ async def search_books(
             extension=extension,
             filesize=filesize if filesize else None,
             download_url=download_url,
+            md5=hit.get("id", ""),
         )
 
         if merge_key not in merged:

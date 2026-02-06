@@ -26,6 +26,12 @@ logs/
 *.swp
 *.swo
 
+# Data files
+data/
+
+# Obsidian
+.obsidian/
+
 # OS
 .DS_Store
 Thumbs.db

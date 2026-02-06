@@ -24,6 +24,7 @@ export default defineConfig({
   },
   server: {
     port: 3000,
+    allowedHosts: ['easybook.local'],
     proxy: {
       '/api': {
         target: 'http://localhost:8000',

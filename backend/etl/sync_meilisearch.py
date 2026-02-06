@@ -71,7 +71,7 @@ def sync():
                     }
                 )
 
-            index.add_documents(documents)
+            index.add_documents(documents, primary_key="id")
             total_synced += len(documents)
             last_id = rows[-1].id
             logger.info("Synced %d documents (total: %d)", len(documents), total_synced)
