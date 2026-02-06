@@ -1,0 +1,43 @@
+[project]
+name = "easybook-backend"
+version = "0.1.0"
+description = "EasyBook 电子书聚合搜索平台后端"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi[standard]>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "sqlalchemy[asyncio]>=2.0.0",
+    "asyncpg>=0.29.0",
+    "pydantic>=2.9.0",
+    "pydantic-settings>=2.5.0",
+    "alembic>=1.13.0",
+    "meilisearch-python-sdk>=7.0.0",
+    "psycopg2-binary>=2.9.9",
+    "httpx>=0.27.0",
+    "opencc-python-reimplemented>=0.1.7",
+    "zstandard>=0.23.0",
+    "apscheduler>=3.10.0,<4.0.0",
+    "slowapi>=0.1.9",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.24.0",
+    "ruff>=0.7.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app", "etl"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

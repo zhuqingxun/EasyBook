@@ -1,0 +1,45 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: easybook-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: easybook
+      POSTGRES_PASSWORD: easybook
+      POSTGRES_DB: easybook
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U easybook"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - easybook-network
+
+  meilisearch:
+    image: getmeili/meilisearch:v1.35.0
+    container_name: easybook-meilisearch
+    ports:
+      - "7700:7700"
+    environment:
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:-easybook-master-key-16chars}
+      MEILI_NO_ANALYTICS: "true"
+    volumes:
+      - meili_data:/meili_data
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--spider", "http://localhost:7700/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - easybook-network
+
+volumes:
+  postgres_data:
+  meili_data:
+
+networks:
+  easybook-network:
+    driver: bridge
