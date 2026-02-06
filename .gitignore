@@ -36,5 +36,4 @@ data/
 .DS_Store
 Thumbs.db
 
-# uv
-uv.lock
+# uv (uv.lock 应提交以保证构建可复现)
