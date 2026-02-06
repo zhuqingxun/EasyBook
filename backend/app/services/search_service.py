@@ -15,7 +15,11 @@ class SearchService:
     async def init(self):
         logger.info("正在初始化 Meilisearch 客户端: url=%s", settings.MEILI_URL)
         print(f"[SEARCH] 连接 Meilisearch: {settings.MEILI_URL}", flush=True)
-        self.client = AsyncClient(settings.MEILI_URL, settings.MEILI_MASTER_KEY)
+        key = settings.MEILI_MASTER_KEY
+        key_info = f"len={len(key)}, first4='{key[:4]}'" if key else "空"
+        logger.info("MEILI_MASTER_KEY: %s", key_info)
+        print(f"[SEARCH] MEILI_MASTER_KEY: {key_info}", flush=True)
+        self.client = AsyncClient(settings.MEILI_URL, key)
         # 测试连接
         try:
             health = await self.client.health()
