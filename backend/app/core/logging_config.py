@@ -10,7 +10,10 @@ def setup_logging() -> None:
         "%(asctime)s - %(name)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s"
     )
 
-    handlers: list[logging.Handler] = [logging.StreamHandler(sys.stdout)]
+    # 使用带 flush 的 StreamHandler，确保每条日志立即输出
+    stdout_handler = logging.StreamHandler(sys.stdout)
+    stdout_handler.flush = lambda: sys.stdout.flush()
+    handlers: list[logging.Handler] = [stdout_handler]
 
     if settings.LOG_FILE:
         log_file = Path(settings.LOG_FILE)
@@ -22,6 +25,7 @@ def setup_logging() -> None:
         format=log_format,
         datefmt="%Y-%m-%d %H:%M:%S",
         handlers=handlers,
+        force=True,  # 强制重新配置，覆盖之前的 basicConfig
     )
 
     # 降低第三方库日志级别
@@ -29,3 +33,9 @@ def setup_logging() -> None:
     logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("apscheduler").setLevel(logging.INFO)
+
+    logging.getLogger(__name__).info(
+        "Logging configured: level=%s, log_file=%s",
+        settings.LOG_LEVEL,
+        settings.LOG_FILE or "(stdout only)",
+    )

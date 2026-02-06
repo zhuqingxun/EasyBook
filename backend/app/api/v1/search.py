@@ -19,10 +19,11 @@ async def search_books(
     page_size: int = Query(20, ge=1, le=100, description="每页条数"),
 ):
     """搜索电子书"""
+    logger.info("收到搜索请求: q=%s, page=%d, page_size=%d", q, page, page_size)
     try:
         result = await search_service.search(q, page, page_size)
     except (MeilisearchError, ConnectionError, TimeoutError) as e:
-        logger.error("Search failed for query=%s: %s", q, e)
+        logger.error("搜索失败: query=%s, error=%s", q, e, exc_info=True)
         raise HTTPException(status_code=503, detail="Search service unavailable")
 
     hits = result["hits"]
@@ -63,10 +64,15 @@ async def search_books(
 
     results = [BookResult(**item) for item in merged.values()]
 
-    return SearchResponse(
+    response = SearchResponse(
         total=result["total_hits"],
         page=result["page"],
         page_size=result["page_size"],
         results=results,
         total_books=len(results),
     )
+    logger.info(
+        "搜索响应: q=%s, total=%d, total_books=%d, page=%d",
+        q, response.total, response.total_books, response.page,
+    )
+    return response

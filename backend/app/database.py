@@ -25,6 +25,7 @@ async_session_maker: async_sessionmaker[AsyncSession] | None = None
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """提供数据库 session，不自动 commit。读操作无需额外处理，写操作由调用方显式 commit。"""
     if async_session_maker is None:
+        logger.error("数据库未初始化，无法提供 session")
         raise RuntimeError("Database not initialized")
     async with async_session_maker() as session:
         try:
@@ -36,6 +37,16 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 
 async def init_db() -> None:
     global engine, async_session_maker
+
+    # 脱敏打印连接信息
+    db_url = settings.DATABASE_URL
+    if "@" in db_url:
+        safe_url = db_url.split("@")[0].split("://")[0] + "://***@" + db_url.split("@")[1]
+    else:
+        safe_url = db_url
+    logger.info("正在连接数据库: %s", safe_url)
+    print(f"[DATABASE] 正在连接: {safe_url}", flush=True)
+
     engine = create_async_engine(
         settings.DATABASE_URL,
         echo=settings.DEBUG,
@@ -47,10 +58,24 @@ async def init_db() -> None:
     async_session_maker = async_sessionmaker(
         engine, class_=AsyncSession, expire_on_commit=False
     )
-    logger.info("Database connection pool initialized")
+    logger.info("数据库连接池已创建 (pool_size=10, max_overflow=20)")
+    print("[DATABASE] 连接池创建成功", flush=True)
+
+    # 测试连接
+    try:
+        from sqlalchemy import text
+        async with async_session_maker() as session:
+            await session.execute(text("SELECT 1"))
+        logger.info("数据库连接测试成功")
+        print("[DATABASE] 连接测试通过 (SELECT 1)", flush=True)
+    except Exception as e:
+        logger.error("数据库连接测试失败: %s", e)
+        print(f"[DATABASE][ERROR] 连接测试失败: {type(e).__name__}: {e}", flush=True)
+        raise
 
 
 async def close_db() -> None:
     if engine:
         await engine.dispose()
-        logger.info("Database connection pool disposed")
+        logger.info("数据库连接池已关闭")
+        print("[DATABASE] 连接池已关闭", flush=True)

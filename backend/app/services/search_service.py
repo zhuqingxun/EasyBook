@@ -13,12 +13,23 @@ class SearchService:
         self.index_name = "books"
 
     async def init(self):
+        logger.info("正在初始化 Meilisearch 客户端: url=%s", settings.MEILI_URL)
+        print(f"[SEARCH] 连接 Meilisearch: {settings.MEILI_URL}", flush=True)
         self.client = AsyncClient(settings.MEILI_URL, settings.MEILI_MASTER_KEY)
-        logger.info("Meilisearch client initialized")
+        # 测试连接
+        try:
+            health = await self.client.health()
+            logger.info("Meilisearch 健康检查通过: %s", health)
+            print(f"[SEARCH] Meilisearch 健康检查通过: {health}", flush=True)
+        except Exception as e:
+            logger.error("Meilisearch 健康检查失败: %s", e)
+            print(f"[SEARCH][ERROR] Meilisearch 健康检查失败: {type(e).__name__}: {e}", flush=True)
+            # 不抛异常，允许应用启动（Meilisearch 可能稍后可用）
 
     async def close(self):
         if self.client:
             await self.client.aclose()
+            logger.info("Meilisearch 客户端已关闭")
 
     def _ensure_client(self) -> AsyncClient:
         if self.client is None:
@@ -27,11 +38,16 @@ class SearchService:
 
     async def search(self, query: str, page: int = 1, page_size: int = 20) -> dict:
         """搜索书籍，返回 Meilisearch 原始结果"""
+        logger.debug("搜索请求: query=%s, page=%d, page_size=%d", query, page, page_size)
         index = self._ensure_client().index(self.index_name)
         result = await index.search(
             query,
             page=page,
             hits_per_page=page_size,
+        )
+        logger.info(
+            "搜索完成: query=%s, total_hits=%s, page=%d",
+            query, result.total_hits, page,
         )
         return {
             "hits": result.hits,
@@ -42,11 +58,12 @@ class SearchService:
 
     async def configure_index(self):
         """配置 Meilisearch 索引属性（初始化时调用一次）"""
+        logger.info("正在配置 Meilisearch 索引: %s", self.index_name)
         index = self._ensure_client().index(self.index_name)
         await index.update_searchable_attributes(["title", "author"])
         await index.update_filterable_attributes(["extension", "language"])
         await index.update_sortable_attributes(["filesize"])
-        logger.info("Meilisearch index configured")
+        logger.info("Meilisearch 索引 %s 配置完成", self.index_name)
 
 
 search_service = SearchService()

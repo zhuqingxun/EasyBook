@@ -37,6 +37,7 @@ async def get_download_url(
     db: AsyncSession = Depends(get_db),
 ):
     """获取电子书下载链接"""
+    logger.info("下载请求: md5=%s", md5)
     book = await _lookup_book(md5, db)
 
     best_gateway = await gateway_service.get_best_gateway()
@@ -46,6 +47,10 @@ async def get_download_url(
     download_url = gateway_service.build_download_url(book.ipfs_cid, best_gateway)
     alternatives = await gateway_service.get_alternatives(book.ipfs_cid, best_gateway)
 
+    logger.info(
+        "下载响应: md5=%s, gateway=%s, alternatives=%d",
+        md5, best_gateway, len(alternatives),
+    )
     return DownloadResponse(
         download_url=download_url,
         gateway=best_gateway,

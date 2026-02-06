@@ -50,6 +50,10 @@ async def health_check():
         logger.error("Failed to get last health check time: %s", e)
 
     overall = "ok" if db_status == "ok" and meili_status == "ok" else "degraded"
+    logger.info(
+        "健康检查: overall=%s, db=%s, meili=%s",
+        overall, db_status, meili_status,
+    )
 
     return HealthResponse(
         status=overall,
