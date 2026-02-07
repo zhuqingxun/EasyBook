@@ -28,15 +28,16 @@ export function useSearch() {
         page: page.value,
         page_size: pageSize.value,
       })
-      results.value = data.results
-      total.value = data.total
+      results.value = data.results ?? []
+      total.value = data.total ?? 0
       hasSearched.value = true
-      console.log(`[Search] 搜索成功: total=${data.total}, results=${data.results.length}`)
+      console.log(`[Search] 搜索成功: total=${data.total}, results=${results.value.length}`)
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Search failed'
       error.value = msg
       results.value = []
       total.value = 0
+      hasSearched.value = true
       console.error('[Search] 搜索失败:', msg, e)
     } finally {
       loading.value = false

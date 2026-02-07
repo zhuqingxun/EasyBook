@@ -26,6 +26,9 @@ logs/
 *.swp
 *.swo
 
+# Claude Code
+.claude/
+
 # Data files
 data/
 
@@ -35,5 +38,8 @@ data/
 # OS
 .DS_Store
 Thumbs.db
+
+# Checkpoint
+*.checkpoint
 
 # uv (uv.lock 应提交以保证构建可复现)

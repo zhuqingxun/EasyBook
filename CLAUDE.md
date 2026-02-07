@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Infrastructure
 ```bash
-docker-compose up -d                    # 启动 PostgreSQL 16 + Meilisearch v1.35
+docker-compose up -d                    # 启动 PostgreSQL 16 + Meilisearch v1.35（注意：生产用 v1.9.0）
 ```
 
 ### Backend (FastAPI)
@@ -33,7 +33,7 @@ uv run python -m etl.sync_meilisearch                       # 同步到 Meilisea
 cd frontend
 pnpm install                            # 安装依赖
 pnpm dev                                # 开发服务器 (localhost:3000)
-pnpm build                              # 生产构建
+pnpm build                              # 生产构建（先 vue-tsc 类型检查，再 vite build）
 ```
 
 ## Architecture
@@ -77,24 +77,35 @@ Vue3 前端 (:3000) → FastAPI 后端 (:8000) → Meilisearch (全文检索)
 
 ## Production Deployment (Railway)
 
+- **前端 URL**：`https://easybook.up.railway.app`
+- **后端 API URL**：`https://easybook-api.up.railway.app`
+
 Railway 服务与角色映射：
 
-| 服务 | 角色 | Root Directory | 部署方式 |
-|---|---|---|---|
-| 后端 API | FastAPI 服务 | `/backend` | Dockerfile（自动检测） |
-| 前端 | Vue3 SPA (nginx) | `/frontend` | Dockerfile（自动检测） |
-| PostgreSQL | 数据库 | - | Railway 模板 |
-| Meilisearch | 搜索引擎 | - | Railway 模板 |
+| Railway 服务名 | 角色 | Root Directory | 部署方式 | 端口 |
+|---|---|---|---|---|
+| `easybook-api` | 后端 API (FastAPI) | `/backend` | Dockerfile | 8080 |
+| `easybook-frontend` | 前端 (Vue3 + nginx) | `/frontend` | Dockerfile | 80 |
+| `Postgres` | 数据库 | - | Railway 模板 | - |
+| `getmeili/meilisearch:v1.9.0` | 搜索引擎 | - | Railway 模板 | 3331 |
 
 - Railway 原生支持 monorepo，通过 Root Directory 设置自动检测子目录 Dockerfile
 - 环境变量支持 `${{ServiceName.VAR}}` 跨服务引用（可靠）
-- 后端环境变量：`DATABASE_URL`（引用 PostgreSQL）、`MEILI_URL`（引用 Meilisearch 内部地址）、`MEILI_MASTER_KEY`、`CORS_ORIGINS`
+- 后端环境变量：`DATABASE_URL`（引用 PostgreSQL，config.py 自动转换 asyncpg 驱动）、`MEILI_URL`、`MEILI_MASTER_KEY`、`CORS_ORIGINS`
 - 前端构建参数：`VITE_API_BASE_URL`（通过 Dockerfile ARG 在构建时注入后端 URL）
 - 后端 Dockerfile 必须设置 `ENV PYTHONUNBUFFERED=1`，确保日志实时输出
+- 推送 master 分支自动触发重新部署
 
 ### Zeabur（已弃用，暂保留）
 
 Zeabur 部署存在痛点：Dockerfile 必须手动粘贴、`${}` 变量引用不解析、REMOVED 部署无日志。已迁移至 Railway。
+
+## Development Notes
+
+- **Vite allowedHosts**：配置了 `easybook.local`，本地开发用 `localhost:3000` 访问（需确认 hosts 配置）
+- **后端端口**：容器内通过 `${PORT:-8080}` 动态控制，本地开发用 8000，Railway 用 8080
+- **速率限制**：后端集成 slowapi，提供 API 限流
+- **JSON 序列化**：使用 orjson 高性能序列化
 
 ## Code Conventions
 

@@ -25,6 +25,9 @@ async def search_books(
     except (MeilisearchError, ConnectionError, TimeoutError) as e:
         logger.error("搜索失败: query=%s, error=%s", q, e, exc_info=True)
         raise HTTPException(status_code=503, detail="Search service unavailable")
+    except Exception as e:
+        logger.exception("搜索时发生未预期错误: query=%s", q)
+        raise HTTPException(status_code=500, detail="Internal search error")
 
     hits = result["hits"]
     best_gateway = await gateway_service.get_best_gateway()
