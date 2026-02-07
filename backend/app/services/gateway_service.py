@@ -42,11 +42,9 @@ class GatewayService:
         """并发检测所有网关，更新数据库"""
         if db.async_session_maker is None:
             logger.error("数据库未初始化，跳过网关健康检查")
-            print("[GATEWAY] 数据库未初始化，跳过健康检查", flush=True)
             return
 
         logger.info("开始 IPFS 网关健康检查，共 %d 个网关", len(self.gateways))
-        print(f"[GATEWAY] 开始检查 {len(self.gateways)} 个网关...", flush=True)
         timeout = httpx.Timeout(connect=5.0, read=10.0, write=5.0, pool=5.0)
         async with httpx.AsyncClient(timeout=timeout) as client:
             tasks = [self.check_single_gateway(gw, client) for gw in self.gateways]
@@ -85,7 +83,6 @@ class GatewayService:
 
             await session.commit()
         logger.info("网关健康检查完成")
-        print("[GATEWAY] 健康检查完成", flush=True)
 
     async def get_best_gateway(self) -> str | None:
         """返回响应时间最快的可用网关"""

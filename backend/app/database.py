@@ -45,7 +45,6 @@ async def init_db() -> None:
     else:
         safe_url = db_url
     logger.info("正在连接数据库: %s", safe_url)
-    print(f"[DATABASE] 正在连接: {safe_url}", flush=True)
 
     engine = create_async_engine(
         settings.DATABASE_URL,
@@ -59,7 +58,6 @@ async def init_db() -> None:
         engine, class_=AsyncSession, expire_on_commit=False
     )
     logger.info("数据库连接池已创建 (pool_size=10, max_overflow=20)")
-    print("[DATABASE] 连接池创建成功", flush=True)
 
     # 测试连接
     try:
@@ -67,10 +65,8 @@ async def init_db() -> None:
         async with async_session_maker() as session:
             await session.execute(text("SELECT 1"))
         logger.info("数据库连接测试成功")
-        print("[DATABASE] 连接测试通过 (SELECT 1)", flush=True)
     except Exception as e:
         logger.error("数据库连接测试失败: %s", e)
-        print(f"[DATABASE][ERROR] 连接测试失败: {type(e).__name__}: {e}", flush=True)
         raise
 
 
@@ -78,4 +74,3 @@ async def close_db() -> None:
     if engine:
         await engine.dispose()
         logger.info("数据库连接池已关闭")
-        print("[DATABASE] 连接池已关闭", flush=True)

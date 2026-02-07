@@ -7,9 +7,6 @@ from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-print(f"[CONFIG] 项目根目录: {_PROJECT_ROOT}", flush=True)
-print(f"[CONFIG] .env 文件路径: {_PROJECT_ROOT / '.env'}", flush=True)
-print(f"[CONFIG] .env 文件存在: {(_PROJECT_ROOT / '.env').exists()}", flush=True)
 
 
 class Settings(BaseSettings):
@@ -58,7 +55,6 @@ class Settings(BaseSettings):
 
 try:
     settings = Settings()
-    print("[CONFIG] Settings 加载成功", flush=True)
 except Exception as e:
     print(f"[CONFIG][FATAL] Settings 加载失败: {type(e).__name__}: {e}", flush=True)
     sys.exit(1)

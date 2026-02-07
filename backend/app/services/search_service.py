@@ -14,16 +14,13 @@ class SearchService:
 
     async def init(self):
         logger.info("正在初始化 Meilisearch 客户端: url=%s", settings.MEILI_URL)
-        print(f"[SEARCH] 连接 Meilisearch: {settings.MEILI_URL}", flush=True)
         self.client = AsyncClient(settings.MEILI_URL, settings.MEILI_MASTER_KEY)
         # 测试连接
         try:
             health = await self.client.health()
             logger.info("Meilisearch 健康检查通过: %s", health)
-            print(f"[SEARCH] Meilisearch 健康检查通过: {health}", flush=True)
         except Exception as e:
             logger.error("Meilisearch 健康检查失败: %s", e)
-            print(f"[SEARCH][ERROR] Meilisearch 健康检查失败: {type(e).__name__}: {e}", flush=True)
             # 不抛异常，允许应用启动（Meilisearch 可能稍后可用）
 
     async def close(self):
