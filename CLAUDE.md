@@ -75,19 +75,26 @@ Vue3 前端 (:3000) → FastAPI 后端 (:8000) → Meilisearch (全文检索)
 - **IPFS 网关**：`cloudflare-ipfs.com` 已退役(2024.8)，不要使用
 - **Vue3 + Naive UI**：不能在 prop 上直接用 `v-model:value="propName"`，需用 `:value` + `@update:value`
 
-## Zeabur Production Deployment
+## Production Deployment (Railway)
 
-Zeabur 服务名称与角色映射：
+Railway 服务与角色映射：
 
-| Zeabur 服务名 | 角色 | Root Directory | 部署方式 |
+| 服务 | 角色 | Root Directory | 部署方式 |
 |---|---|---|---|
-| `easybook-mil` | **后端 API** | `/backend` | Dockerfile |
-| `easybook-hanies` | **前端** | `/frontend` | 静态站点 |
-| `meilisearch` | 搜索引擎 | - | Marketplace 模板 |
-| `postgresql` | 数据库 | - | Marketplace 模板 |
+| 后端 API | FastAPI 服务 | `/backend` | Dockerfile（自动检测） |
+| 前端 | Vue3 SPA (nginx) | `/frontend` | Dockerfile（自动检测） |
+| PostgreSQL | 数据库 | - | Railway 模板 |
+| Meilisearch | 搜索引擎 | - | Railway 模板 |
 
-- 后端 `MEILI_MASTER_KEY` 通过 `${meilisearch.PASSWORD}` 跨服务引用
-- Dockerfile 必须设置 `ENV PYTHONUNBUFFERED=1`，否则容器崩溃时日志不可见
+- Railway 原生支持 monorepo，通过 Root Directory 设置自动检测子目录 Dockerfile
+- 环境变量支持 `${{ServiceName.VAR}}` 跨服务引用（可靠）
+- 后端环境变量：`DATABASE_URL`（引用 PostgreSQL）、`MEILI_URL`（引用 Meilisearch 内部地址）、`MEILI_MASTER_KEY`、`CORS_ORIGINS`
+- 前端构建参数：`VITE_API_BASE_URL`（通过 Dockerfile ARG 在构建时注入后端 URL）
+- 后端 Dockerfile 必须设置 `ENV PYTHONUNBUFFERED=1`，确保日志实时输出
+
+### Zeabur（已弃用，暂保留）
+
+Zeabur 部署存在痛点：Dockerfile 必须手动粘贴、`${}` 变量引用不解析、REMOVED 部署无日志。已迁移至 Railway。
 
 ## Code Conventions
 
