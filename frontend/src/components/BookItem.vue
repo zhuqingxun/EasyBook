@@ -7,7 +7,7 @@
     <div class="book-formats">
       <n-popover
         v-for="fmt in book.formats"
-        :key="fmt.extension"
+        :key="fmt.md5"
         trigger="click"
         placement="bottom"
         :style="{ maxWidth: '280px' }"
@@ -72,16 +72,12 @@ function getDownloadSources(fmt: BookFormat): DownloadSource[] {
       url: `${ANNAS_ARCHIVE_URL}/slow_download/${md5}/0/0`,
     },
     {
-      name: 'LibGen (library.lol)',
-      url: `https://library.lol/main/${md5}`,
+      name: '鸠摩搜索 (搜索)',
+      url: 'https://www.jiumodiary.com/',
     },
     {
-      name: 'LibGen (libgen.li)',
-      url: `https://libgen.li/ads.php?md5=${md5}`,
-    },
-    {
-      name: 'Z-Library (搜索)',
-      url: `https://z-lib.gs/s/${encodeURIComponent(props.book.title)}`,
+      name: '24h搜书 (搜索)',
+      url: `https://24hbook.store/search?keyword=${encodeURIComponent(props.book.title)}`,
     },
   ]
 
