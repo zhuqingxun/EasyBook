@@ -27,8 +27,8 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 INDEX_NAME = "books"
-DEFAULT_BATCH_SIZE = 50000
-DEFAULT_MAX_PENDING = 5
+DEFAULT_BATCH_SIZE = 200000
+DEFAULT_MAX_PENDING = 10
 DEFAULT_CHECKPOINT_FILE = "data/sync_meilisearch.checkpoint"
 TASK_TIMEOUT_MS = 600_000  # 单个任务等待超时 10 分钟
 
@@ -76,11 +76,11 @@ def sync(
     meili_client = Client(settings.MEILI_URL, settings.MEILI_MASTER_KEY)
     index = meili_client.index(INDEX_NAME)
 
-    # 配置索引属性
-    index.update_searchable_attributes(["title", "author"])
-    index.update_filterable_attributes(["extension", "language"])
-    index.update_sortable_attributes(["filesize"])
-    logger.info("索引属性已配置")
+    # 导入阶段：禁用索引属性，避免每批重建索引
+    index.update_searchable_attributes(["*"])
+    index.update_filterable_attributes([])
+    index.update_sortable_attributes([])
+    logger.info("已临时禁用索引属性（导入模式）")
 
     # 初始化数据库
     engine = create_engine(settings.sync_database_url)
@@ -191,6 +191,15 @@ def sync(
         _drain_oldest()
 
     engine.dispose()
+
+    # 导入完成，恢复索引属性
+    logger.info("正在恢复索引属性（searchable / filterable / sortable）...")
+    task1 = index.update_searchable_attributes(["title", "author"])
+    task2 = index.update_filterable_attributes(["extension", "language"])
+    task3 = index.update_sortable_attributes(["filesize"])
+    for task in [task1, task2, task3]:
+        meili_client.wait_for_task(task.task_uid, timeout_in_ms=TASK_TIMEOUT_MS)
+    logger.info("索引属性已恢复")
 
     elapsed = time.monotonic() - start_time
     logger.info(
