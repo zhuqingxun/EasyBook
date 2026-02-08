@@ -9,7 +9,6 @@ _start_time = time.time()
 print(f"[BOOT] EasyBook API 启动中... Python {sys.version}", flush=True)
 
 try:
-    import asyncio
     import logging
     from contextlib import asynccontextmanager
 
@@ -24,8 +23,6 @@ try:
     from app.config import settings
     from app.core.logging_config import setup_logging
     from app.database import close_db, init_db
-    from app.services.gateway_service import gateway_service
-    from app.services.scheduler_service import scheduler, setup_scheduler
     from app.services.search_service import search_service
 
 except Exception as e:
@@ -54,7 +51,7 @@ async def lifespan(app: FastAPI):
         logger.info("正在初始化数据库连接...")
         await init_db()
         logger.info("数据库连接池初始化成功")
-    except Exception as e:
+    except Exception:
         logger.exception("数据库初始化失败")
         logger.warning("应用将继续启动，但数据库功能不可用")
 
@@ -63,7 +60,7 @@ async def lifespan(app: FastAPI):
         logger.info("正在初始化 Meilisearch 客户端...")
         await search_service.init()
         logger.info("Meilisearch 客户端初始化成功")
-    except Exception as e:
+    except Exception:
         logger.exception("Meilisearch 客户端初始化失败")
 
     # 4. 配置 Meilisearch 索引
@@ -74,23 +71,6 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning("Meilisearch 索引配置失败（索引可能不存在）: %s", e)
 
-    # 5. 启动定时调度器
-    try:
-        logger.info("正在启动调度器...")
-        setup_scheduler()
-        scheduler.start()
-        logger.info("调度器启动成功")
-    except Exception as e:
-        logger.exception("调度器启动失败")
-
-    # 6. 异步执行首次网关健康检查
-    health_check_task = None
-    try:
-        health_check_task = asyncio.create_task(gateway_service.check_all_gateways())
-        logger.info("网关健康检查任务已创建")
-    except Exception as e:
-        logger.exception("创建网关健康检查任务失败")
-
     total_startup = time.time() - _start_time
     logger.info("EasyBook API 启动完成！总耗时: %.2fs，监听端口: %s",
                 total_startup, os.environ.get("PORT", "8080"))
@@ -99,20 +79,6 @@ async def lifespan(app: FastAPI):
 
     # === 关闭阶段 ===
     logger.info("开始关闭 EasyBook API...")
-
-    if health_check_task and not health_check_task.done():
-        health_check_task.cancel()
-        try:
-            await health_check_task
-        except asyncio.CancelledError:
-            pass
-        logger.info("网关健康检查任务已取消")
-
-    try:
-        scheduler.shutdown(wait=True)
-        logger.info("调度器已关闭")
-    except Exception as e:
-        logger.exception("调度器关闭失败: %s", e)
 
     try:
         await search_service.close()

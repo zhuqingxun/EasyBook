@@ -20,15 +20,10 @@ class TestFormatMerge:
             author = (hit.get("author") or "").strip()
             merge_key = (title.lower(), author.lower())
 
-            ipfs_cid = hit.get("ipfs_cid") or ""
-            download_url = (
-                f"https://ipfs.io/ipfs/{ipfs_cid}" if ipfs_cid else ""
-            )
-
             fmt = BookFormat(
                 extension=hit["extension"],
                 filesize=hit.get("filesize"),
-                download_url=download_url,
+                download_url="",
             )
 
             if merge_key not in merged:
@@ -53,12 +48,15 @@ class TestFormatMerge:
         assert len(santi_book.formats) == 1
         assert santi_book.formats[0].extension == "epub"
 
-    def test_empty_cid_produces_empty_download_url(self, sample_meilisearch_hits):
-        """无 IPFS CID 的记录 download_url 为空字符串"""
-        hit = sample_meilisearch_hits[2]  # 三体，ipfs_cid 为空
-        ipfs_cid = hit.get("ipfs_cid") or ""
-        download_url = f"https://ipfs.io/ipfs/{ipfs_cid}" if ipfs_cid else ""
-        assert download_url == ""
+    def test_download_url_is_empty_string(self, sample_meilisearch_hits):
+        """download_url 始终为空字符串（前端自行构建 Anna's Archive URL）"""
+        for hit in sample_meilisearch_hits:
+            fmt = BookFormat(
+                extension=hit["extension"],
+                filesize=hit.get("filesize"),
+                download_url="",
+            )
+            assert fmt.download_url == ""
 
 
 class TestSearchService:

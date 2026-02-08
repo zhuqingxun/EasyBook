@@ -1,110 +1,6 @@
-"""IPFS 网关服务测试"""
+"""ETL 数据清洗逻辑测试"""
 
-from unittest.mock import AsyncMock, MagicMock, patch
-
-import httpx
 import pytest
-
-from app.services.gateway_service import GatewayService
-
-
-class TestGatewayService:
-    """网关 Service 测试"""
-
-    @pytest.mark.asyncio
-    async def test_check_single_gateway_success(self):
-        """网关检测成功场景"""
-        service = GatewayService()
-
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-
-        mock_client = AsyncMock()
-        mock_client.head = AsyncMock(return_value=mock_response)
-
-        gateway, available, response_time = await service.check_single_gateway(
-            "ipfs.io", mock_client
-        )
-
-        assert gateway == "ipfs.io"
-        assert available is True
-        assert response_time is not None
-        assert response_time > 0
-
-    @pytest.mark.asyncio
-    async def test_check_single_gateway_non_200_unavailable(self):
-        """非 200 状态码标记为不可用（follow_redirects=True 下不会收到 3xx）"""
-        service = GatewayService()
-
-        for status in [301, 403, 404, 500]:
-            mock_response = MagicMock()
-            mock_response.status_code = status
-
-            mock_client = AsyncMock()
-            mock_client.head = AsyncMock(return_value=mock_response)
-
-            gateway, available, _ = await service.check_single_gateway(
-                "test.gateway", mock_client
-            )
-            assert available is False, f"Status {status} should be treated as unavailable"
-
-    @pytest.mark.asyncio
-    async def test_check_single_gateway_timeout(self):
-        """网关超时标记为不可用"""
-        service = GatewayService()
-
-        mock_client = AsyncMock()
-        mock_client.head = AsyncMock(side_effect=httpx.TimeoutException("timeout"))
-
-        gateway, available, response_time = await service.check_single_gateway(
-            "slow.gateway", mock_client
-        )
-
-        assert gateway == "slow.gateway"
-        assert available is False
-        assert response_time is None
-
-    @pytest.mark.asyncio
-    async def test_check_single_gateway_rate_limited(self):
-        """429 限流标记为不可用"""
-        service = GatewayService()
-
-        mock_response = MagicMock()
-        mock_response.status_code = 429
-
-        mock_client = AsyncMock()
-        mock_client.head = AsyncMock(return_value=mock_response)
-
-        gateway, available, response_time = await service.check_single_gateway(
-            "limited.gateway", mock_client
-        )
-
-        assert available is False
-        assert response_time is None
-
-    def test_build_download_url(self):
-        """构建下载 URL"""
-        service = GatewayService()
-        url = service.build_download_url("QmTest123", "ipfs.io")
-        assert url == "https://ipfs.io/ipfs/QmTest123"
-
-    @pytest.mark.asyncio
-    async def test_get_best_gateway_fallback(self):
-        """无健康检查记录时回退到配置列表第一个"""
-        service = GatewayService()
-        # 模拟 async_session_maker 为 None（DB 未初始化）
-        with patch("app.database.async_session_maker", None):
-            result = await service.get_best_gateway()
-            assert result == service.gateways[0]
-
-    @pytest.mark.asyncio
-    async def test_get_alternatives_without_db(self):
-        """无 DB 时从配置列表返回备用网关"""
-        service = GatewayService()
-        with patch("app.database.async_session_maker", None):
-            alternatives = await service.get_alternatives("QmTest123", "ipfs.io")
-            assert len(alternatives) <= 3
-            assert all("ipfs.io" not in url for url in alternatives)
 
 
 class TestETLCleansing:
@@ -125,9 +21,16 @@ class TestETLCleansing:
         # 空值（保留）
         assert is_zh_or_en(None) is True
         assert is_zh_or_en("") is True
-        # 其他语言（过滤）
+        # 繁体中文
+        assert is_zh_or_en("traditional chinese") is True
+        # 其他语言（过滤）——曾因子串匹配误放行
         assert is_zh_or_en("de") is False
         assert is_zh_or_en("Japanese") is False
+        assert is_zh_or_en("french") is False
+        assert is_zh_or_en("bengali") is False
+        assert is_zh_or_en("slovenian") is False
+        assert is_zh_or_en("zhuang") is False
+        assert is_zh_or_en("chichewa") is False
 
     def test_extract_year(self):
         """年份提取"""
@@ -169,7 +72,6 @@ class TestETLCleansing:
             "md5_reported": "ABC123DEF456",
             "filesize_reported": 1024,
             "language": "en",
-            "ipfs_cid": "QmTest",
             "year": "2024",
             "publisher": "Publisher",
         }

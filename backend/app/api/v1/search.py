@@ -4,7 +4,6 @@ from fastapi import APIRouter, HTTPException, Query
 from meilisearch_python_sdk.errors import MeilisearchError
 
 from app.schemas.search import BookFormat, BookResult, SearchResponse
-from app.services.gateway_service import gateway_service
 from app.services.search_service import search_service
 
 logger = logging.getLogger(__name__)
@@ -25,12 +24,11 @@ async def search_books(
     except (MeilisearchError, ConnectionError, TimeoutError) as e:
         logger.error("搜索失败: query=%s, error=%s", q, e, exc_info=True)
         raise HTTPException(status_code=503, detail="Search service unavailable")
-    except Exception as e:
+    except Exception:
         logger.exception("搜索时发生未预期错误: query=%s", q)
         raise HTTPException(status_code=500, detail="Internal search error")
 
     hits = result["hits"]
-    best_gateway = await gateway_service.get_best_gateway()
 
     # 按 title+author 合并多格式
     merged: dict[str, dict] = {}
@@ -39,19 +37,13 @@ async def search_books(
         author = (hit.get("author") or "").strip()
         merge_key = (title.lower(), author.lower())
 
-        ipfs_cid = hit.get("ipfs_cid") or ""
         extension = hit.get("extension", "")
         filesize = hit.get("filesize")
-
-        if ipfs_cid and best_gateway:
-            download_url = gateway_service.build_download_url(ipfs_cid, best_gateway)
-        else:
-            download_url = ""
 
         fmt = BookFormat(
             extension=extension,
             filesize=filesize if filesize else None,
-            download_url=download_url,
+            download_url="",
             md5=hit.get("id", ""),
         )
 

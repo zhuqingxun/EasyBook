@@ -5,12 +5,6 @@ export interface BookFormat {
   md5: string
 }
 
-export interface DownloadResponse {
-  download_url: string
-  gateway: string
-  alternatives: string[]
-}
-
 export interface BookResult {
   id: string
   title: string

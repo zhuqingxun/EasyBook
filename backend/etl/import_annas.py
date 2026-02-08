@@ -40,14 +40,17 @@ PROGRESS_INTERVAL = 50000
 SENTINEL = None  # 队列结束标记
 
 
+ALLOWED_LANGUAGES = {
+    "zh", "chi", "chinese", "traditional chinese",
+    "en", "eng", "english",
+}
+
+
 def is_zh_or_en(language: str | None) -> bool:
     """判断是否为中文或英文记录（空值也保留）"""
     if not language:
         return True
-    lang_lower = language.lower()
-    return any(
-        k in lang_lower for k in ["zh", "chi", "chinese", "en", "eng", "english"]
-    )
+    return language.lower().strip() in ALLOWED_LANGUAGES
 
 
 def extract_year(year_str: str | None) -> str | None:
@@ -113,7 +116,6 @@ def parse_record(data: dict, converter: opencc.OpenCC) -> dict | None:
         "filesize": filesize,
         "language": (language or "").strip()[:20] or None,
         "md5": md5,
-        "ipfs_cid": (fields.get("ipfs_cid") or "").strip()[:255] or None,
         "year": extract_year(fields.get("year")),
         "publisher": publisher or None,
     }
@@ -135,13 +137,12 @@ def _load_checkpoint(checkpoint_path: Path) -> int:
 
 
 INSERT_SQL = """
-    INSERT INTO books (title, author, extension, filesize, language, md5, ipfs_cid, year, publisher)
+    INSERT INTO books (title, author, extension, filesize, language, md5, year, publisher)
     VALUES %s
     ON CONFLICT (md5) DO NOTHING
 """
 
-COLUMNS = ("title", "author", "extension", "filesize", "language", "md5", "ipfs_cid", "year",
-           "publisher")
+COLUMNS = ("title", "author", "extension", "filesize", "language", "md5", "year", "publisher")
 
 
 def _db_writer(engine, queue: Queue, stats: dict) -> None:

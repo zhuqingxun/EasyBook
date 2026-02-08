@@ -11,7 +11,6 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from app.config import settings
 from app.database import Base
 from app.models.book import Book  # noqa: F401
-from app.models.gateway_health import GatewayHealth  # noqa: F401
 
 
 async def create_tables():

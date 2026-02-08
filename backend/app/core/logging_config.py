@@ -32,7 +32,6 @@ def setup_logging() -> None:
     logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
     logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
     logging.getLogger("httpx").setLevel(logging.WARNING)
-    logging.getLogger("apscheduler").setLevel(logging.INFO)
 
     logging.getLogger(__name__).info(
         "Logging configured: level=%s, log_file=%s",

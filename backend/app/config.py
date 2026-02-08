@@ -15,13 +15,6 @@ class Settings(BaseSettings):
     # Meilisearch
     MEILI_URL: str = "http://localhost:7700"
     MEILI_MASTER_KEY: str = ""
-    # IPFS 网关（逗号分隔字符串）
-    IPFS_GATEWAYS: str = (
-        "ipfs.io,dweb.link,gateway.pinata.cloud,ipfs.filebase.io,w3s.link,4everland.io"
-    )
-    # 健康检查配置
-    HEALTH_CHECK_INTERVAL_HOURS: int = 24
-    HEALTH_CHECK_FAIL_THRESHOLD: int = 3
     # CORS
     CORS_ORIGINS: List[str] = ["http://localhost:3000"]
     # 应用配置
@@ -42,10 +35,6 @@ class Settings(BaseSettings):
         if isinstance(v, str):
             return json.loads(v)
         return v
-
-    @property
-    def ipfs_gateway_list(self) -> List[str]:
-        return [g.strip() for g in self.IPFS_GATEWAYS.split(",") if g.strip()]
 
     @property
     def sync_database_url(self) -> str:

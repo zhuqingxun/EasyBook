@@ -17,7 +17,6 @@ class Book(Base):
     filesize: Mapped[Optional[int]] = mapped_column(BigInteger)
     language: Mapped[Optional[str]] = mapped_column(String(20))
     md5: Mapped[str] = mapped_column(String(32), unique=True, nullable=False, index=True)
-    ipfs_cid: Mapped[Optional[str]] = mapped_column(String(255))
     year: Mapped[Optional[str]] = mapped_column(String(10))
     publisher: Mapped[Optional[str]] = mapped_column(String(255))
     created_at: Mapped[datetime] = mapped_column(

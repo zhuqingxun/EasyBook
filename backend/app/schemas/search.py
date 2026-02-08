@@ -25,14 +25,7 @@ class SearchResponse(BaseModel):
     total_books: int  # 合并后的书籍数（同 title+author 合并多格式）
 
 
-class DownloadResponse(BaseModel):
-    download_url: str
-    gateway: str
-    alternatives: list[str]
-
-
 class HealthResponse(BaseModel):
     status: str
     database: str
     meilisearch: str
-    last_health_check: str | None = None
