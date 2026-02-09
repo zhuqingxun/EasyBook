@@ -17,11 +17,11 @@ class SearchCache:
         self.hits = 0
         self.misses = 0
 
-    def _make_key(self, query: str, page: int, page_size: int) -> str:
-        return f"{query.lower().strip()}:{page}:{page_size}"
+    def _make_key(self, title: str, author: str, page: int, page_size: int) -> str:
+        return f"t:{title.lower().strip()}|a:{author.lower().strip()}:{page}:{page_size}"
 
-    def get(self, query: str, page: int, page_size: int) -> dict | None:
-        key = self._make_key(query, page, page_size)
+    def get(self, title: str, author: str, page: int, page_size: int) -> dict | None:
+        key = self._make_key(title, author, page, page_size)
         with self._lock:
             if key in self._cache:
                 self._cache.move_to_end(key)
@@ -31,8 +31,8 @@ class SearchCache:
             self.misses += 1
             return None
 
-    def put(self, query: str, page: int, page_size: int, result: dict) -> None:
-        key = self._make_key(query, page, page_size)
+    def put(self, title: str, author: str, page: int, page_size: int, result: dict) -> None:
+        key = self._make_key(title, author, page, page_size)
         with self._lock:
             if key in self._cache:
                 self._cache.move_to_end(key)

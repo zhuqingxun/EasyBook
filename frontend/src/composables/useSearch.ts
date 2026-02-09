@@ -28,7 +28,8 @@ function createStages(): SearchStage[] {
 }
 
 export function useSearch() {
-  const query = ref('')
+  const title = ref('')
+  const author = ref('')
   const results = ref<BookResult[]>([])
   const total = ref(0)
   const page = ref(1)
@@ -156,7 +157,7 @@ export function useSearch() {
   }
 
   const search = async () => {
-    if (!query.value.trim()) {
+    if (!title.value.trim() && !author.value.trim()) {
       return
     }
 
@@ -166,7 +167,8 @@ export function useSearch() {
 
     try {
       const data = await searchBooks({
-        q: query.value.trim(),
+        title: title.value.trim() || undefined,
+        author: author.value.trim() || undefined,
         page: page.value,
         page_size: pageSize.value,
       })
@@ -192,7 +194,8 @@ export function useSearch() {
   }
 
   return {
-    query,
+    title,
+    author,
     results,
     total,
     page,

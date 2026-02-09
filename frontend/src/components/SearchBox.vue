@@ -1,12 +1,20 @@
 <template>
   <div class="search-box">
-    <n-input-group>
+    <div class="search-inputs">
       <n-input
-        :value="modelValue"
-        placeholder="搜索电子书..."
+        :value="title"
+        placeholder="书名"
         size="large"
         clearable
-        @update:value="$emit('update:modelValue', $event)"
+        @update:value="$emit('update:title', $event)"
+        @keyup.enter="$emit('search')"
+      />
+      <n-input
+        :value="author"
+        placeholder="作者"
+        size="large"
+        clearable
+        @update:value="$emit('update:author', $event)"
         @keyup.enter="$emit('search')"
       />
       <n-button
@@ -17,18 +25,20 @@
       >
         搜索
       </n-button>
-    </n-input-group>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 defineProps<{
-  modelValue: string
+  title: string
+  author: string
   loading?: boolean
 }>()
 
 defineEmits<{
-  'update:modelValue': [value: string]
+  'update:title': [value: string]
+  'update:author': [value: string]
   search: []
 }>()
 </script>
@@ -37,5 +47,16 @@ defineEmits<{
 .search-box {
   max-width: 640px;
   width: 100%;
+}
+
+.search-inputs {
+  display: flex;
+  gap: 8px;
+}
+
+@media (max-width: 600px) {
+  .search-inputs {
+    flex-direction: column;
+  }
 }
 </style>

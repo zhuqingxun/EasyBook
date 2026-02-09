@@ -107,7 +107,7 @@ class TestSearchService:
         with patch.object(service, "_sync_search", return_value=mock_result) as mock_sync:
             result = await service.search("python", page=3, page_size=10)
 
-        mock_sync.assert_called_once_with("python", 3, 10)
+        mock_sync.assert_called_once_with("python", 3, 10, None, None)
         assert result["page"] == 3
         assert result["page_size"] == 10
 

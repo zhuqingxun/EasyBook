@@ -3,8 +3,11 @@
     <div class="search-header">
       <h2 class="brand-small" @click="goHome">EasyBook</h2>
       <SearchBox
-        v-model:model-value="query"
+        :title="title"
+        :author="author"
         :loading="loading"
+        @update:title="title = $event"
+        @update:author="author = $event"
         @search="handleSearch"
       />
     </div>
@@ -41,19 +44,25 @@ import { useSearch } from '@/composables/useSearch'
 
 const route = useRoute()
 const router = useRouter()
-const { query, results, total, page, pageSize, loading, error, hasSearched, stages, totalElapsed, search, changePage } =
+const { title, author, results, total, page, pageSize, loading, error, hasSearched, stages, totalElapsed, search, changePage } =
   useSearch()
 
 function handleSearch() {
-  if (query.value.trim()) {
+  if (title.value.trim() || author.value.trim()) {
     page.value = 1
-    router.push({ path: '/search', query: { q: query.value.trim(), page: '1' } })
+    const query: Record<string, string> = { page: '1' }
+    if (title.value.trim()) query.title = title.value.trim()
+    if (author.value.trim()) query.author = author.value.trim()
+    router.push({ path: '/search', query })
     search()
   }
 }
 
 function handlePageChange(newPage: number) {
-  router.push({ path: '/search', query: { q: query.value, page: String(newPage) } })
+  const query: Record<string, string> = { page: String(newPage) }
+  if (title.value.trim()) query.title = title.value.trim()
+  if (author.value.trim()) query.author = author.value.trim()
+  router.push({ path: '/search', query })
   changePage(newPage)
 }
 
@@ -64,10 +73,12 @@ function goHome() {
 watch(
   () => route.query,
   () => {
-    const q = route.query.q as string
+    const t = (route.query.title as string) || ''
+    const a = (route.query.author as string) || ''
     const p = parseInt(route.query.page as string) || 1
-    if (q && (q !== query.value || p !== page.value)) {
-      query.value = q
+    if ((t || a) && (t !== title.value || a !== author.value || p !== page.value)) {
+      title.value = t
+      author.value = a
       page.value = p
       search()
     }

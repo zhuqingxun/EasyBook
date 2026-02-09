@@ -70,45 +70,81 @@ class SearchService:
         """无需清理（每次查询用独立连接）"""
         logger.info("DuckDB 搜索服务已关闭")
 
-    async def search(self, query: str, page: int = 1, page_size: int = 20) -> dict:
-        """搜索书籍，返回与原 Meilisearch 兼容的结果格式"""
+    async def search(
+        self,
+        query: str | None = None,
+        page: int = 1,
+        page_size: int = 20,
+        *,
+        title: str | None = None,
+        author: str | None = None,
+    ) -> dict:
+        """搜索书籍，支持分字段搜索（title/author AND 关系）和旧版 q 参数"""
         if not self._initialized:
             raise RuntimeError("SearchService not initialized, call init() first")
 
-        logger.debug("搜索请求: query=%s, page=%d, page_size=%d", query, page, page_size)
-        result = await asyncio.to_thread(self._sync_search, query, page, page_size)
+        logger.debug(
+            "搜索请求: query=%s, title=%s, author=%s, page=%d, page_size=%d",
+            query, title, author, page, page_size,
+        )
+        result = await asyncio.to_thread(
+            self._sync_search, query, page, page_size, title, author
+        )
         logger.info(
-            "搜索完成: query=%s, total_hits=%d, page=%d",
-            query, result["total_hits"], page,
+            "搜索完成: query=%s, title=%s, author=%s, total_hits=%d, page=%d",
+            query, title, author, result["total_hits"], page,
         )
         return result
 
-    def _sync_search(self, query: str, page: int, page_size: int) -> dict:
+    def _sync_search(
+        self,
+        query: str | None,
+        page: int,
+        page_size: int,
+        title: str | None,
+        author: str | None,
+    ) -> dict:
         """同步 DuckDB 查询（在线程中执行）"""
-        pattern = f"%{query}%"
         fetch_limit = max(page_size * 10, 200)
 
+        # 动态构建 WHERE 子句
+        conditions: list[str] = []
+        params: list[object] = [self.parquet_path]
+
+        if title and author:
+            conditions.append("title ILIKE ? AND author ILIKE ?")
+            params.extend([f"%{title}%", f"%{author}%"])
+        elif title:
+            conditions.append("title ILIKE ?")
+            params.append(f"%{title}%")
+        elif author:
+            conditions.append("author ILIKE ?")
+            params.append(f"%{author}%")
+        elif query:
+            # 旧版 q 参数：title OR author
+            conditions.append("(title ILIKE ? OR author ILIKE ?)")
+            pattern = f"%{query}%"
+            params.extend([pattern, pattern])
+
+        where_clause = f"WHERE {conditions[0]}" if conditions else ""
+
         with self._create_connection() as conn:
-            count_sql = """
+            count_sql = f"""
                 SELECT COUNT(*) as cnt
                 FROM read_parquet(?)
-                WHERE title ILIKE ? OR author ILIKE ?
+                {where_clause}
             """
-            total_hits = conn.execute(
-                count_sql, [self.parquet_path, pattern, pattern]
-            ).fetchone()[0]
+            total_hits = conn.execute(count_sql, params).fetchone()[0]
 
-            search_sql = """
+            search_sql = f"""
                 SELECT md5 as id, title, author, extension, filesize,
                        language, year, publisher
                 FROM read_parquet(?)
-                WHERE title ILIKE ? OR author ILIKE ?
+                {where_clause}
                 LIMIT ?
             """
-            rows = conn.execute(
-                search_sql,
-                [self.parquet_path, pattern, pattern, fetch_limit],
-            ).fetchall()
+            search_params = [*params, fetch_limit]
+            rows = conn.execute(search_sql, search_params).fetchall()
             columns = [
                 "id", "title", "author", "extension", "filesize",
                 "language", "year", "publisher",

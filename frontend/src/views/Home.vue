@@ -4,7 +4,10 @@
       <h1 class="brand">EasyBook</h1>
       <p class="subtitle">电子书聚合搜索</p>
       <SearchBox
-        v-model:model-value="query"
+        :title="title"
+        :author="author"
+        @update:title="title = $event"
+        @update:author="author = $event"
         @search="handleSearch"
       />
     </div>
@@ -17,11 +20,15 @@ import { useRouter } from 'vue-router'
 import SearchBox from '@/components/SearchBox.vue'
 
 const router = useRouter()
-const query = ref('')
+const title = ref('')
+const author = ref('')
 
 function handleSearch() {
-  if (query.value.trim()) {
-    router.push({ path: '/search', query: { q: query.value.trim() } })
+  if (title.value.trim() || author.value.trim()) {
+    const query: Record<string, string> = {}
+    if (title.value.trim()) query.title = title.value.trim()
+    if (author.value.trim()) query.author = author.value.trim()
+    router.push({ path: '/search', query })
   }
 }
 </script>
