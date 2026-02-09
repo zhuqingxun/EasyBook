@@ -71,12 +71,16 @@ async def search_books(
         return (rank, len(title))
 
     sorted_items = sorted(merged.values(), key=relevance_key)
-    results = [BookResult(**item) for item in sorted_items]
+
+    # 在 Python 层分页（因为 SQL 获取了较大批次用于排序）
+    start = (page - 1) * page_size
+    page_items = sorted_items[start:start + page_size]
+    results = [BookResult(**item) for item in page_items]
 
     response = SearchResponse(
         total=result["total_hits"],
-        page=result["page"],
-        page_size=result["page_size"],
+        page=page,
+        page_size=page_size,
         results=results,
         total_books=len(results),
     )

@@ -1,12 +1,11 @@
 import logging
-from pathlib import Path
 
 from fastapi import APIRouter
 from sqlalchemy import text
 
-from app.config import settings
 from app.database import async_session_maker
 from app.schemas.search import HealthResponse
+from app.services.search_service import search_service
 
 logger = logging.getLogger(__name__)
 
@@ -28,11 +27,10 @@ async def health_check():
         logger.error("Database health check failed: %s", e)
         db_status = "error"
 
-    # 检查 DuckDB Parquet 文件
-    parquet_path = Path(settings.DUCKDB_PARQUET_PATH)
-    if not parquet_path.exists():
+    # 检查 DuckDB 搜索服务（支持本地和远程模式）
+    if not search_service._initialized:
         duckdb_status = "error"
-        logger.error("Parquet file not found: %s", parquet_path)
+        logger.error("DuckDB search service not initialized")
 
     overall = "ok" if db_status == "ok" and duckdb_status == "ok" else "degraded"
     logger.info("健康检查: overall=%s, db=%s, duckdb=%s", overall, db_status, duckdb_status)
