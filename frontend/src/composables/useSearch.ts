@@ -28,7 +28,7 @@ export function useSearch() {
   const elapsed = ref(0)
 
   const stage = computed(() => {
-    let current = STAGE_THRESHOLDS[0].label
+    let current: string = STAGE_THRESHOLDS[0].label
     for (const t of STAGE_THRESHOLDS) {
       if (elapsed.value >= t.seconds) {
         current = t.label
