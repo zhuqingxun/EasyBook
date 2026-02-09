@@ -45,9 +45,12 @@ export function useSearch() {
   function resetStages() {
     const fresh = createStages()
     for (let i = 0; i < stages.length; i++) {
-      stages[i].status = fresh[i].status
-      stages[i].progress = fresh[i].progress
-      stages[i].elapsed = fresh[i].elapsed
+      const s = stages[i]
+      const f = fresh[i]
+      if (!s || !f) continue
+      s.status = f.status
+      s.progress = f.progress
+      s.elapsed = f.elapsed
     }
   }
 
@@ -65,41 +68,41 @@ export function useSearch() {
     })
 
     // 激活第一个阶段
-    stages[0].status = 'active'
+    if (stages[0]) stages[0].status = 'active'
 
     tickTimer = setInterval(() => {
       const elapsedSec = (Date.now() - startTime) / 1000
       totalElapsed.value = Math.floor(elapsedSec)
 
       for (let i = 0; i < stages.length; i++) {
+        const s = stages[i]
         const b = boundaries[i]
+        if (!s || !b) continue
 
         if (elapsedSec >= b.end) {
-          // 已超过该阶段预计结束时间 → 完成
-          if (stages[i].status !== 'completed') {
-            stages[i].status = 'completed'
-            stages[i].progress = 100
-            stages[i].elapsed = stages[i].estimatedSeconds
+          if (s.status !== 'completed') {
+            s.status = 'completed'
+            s.progress = 100
+            s.elapsed = s.estimatedSeconds
           }
         } else if (elapsedSec >= b.start) {
-          // 正在此阶段
-          if (stages[i].status === 'pending') {
-            stages[i].status = 'active'
+          if (s.status === 'pending') {
+            s.status = 'active'
           }
           const stageElapsed = elapsedSec - b.start
           const duration = b.end - b.start
-          stages[i].elapsed = Math.floor(stageElapsed)
-          // 进度最高到 95%，防止卡在 99%
-          stages[i].progress = Math.min(Math.round((stageElapsed / duration) * 100), 95)
+          s.elapsed = Math.floor(stageElapsed)
+          s.progress = Math.min(Math.round((stageElapsed / duration) * 100), 95)
         }
       }
 
       // 如果所有预定阶段都完成了，最后一个阶段保持 active 状态持续计时
-      const lastIdx = stages.length - 1
-      if (elapsedSec >= boundaries[lastIdx].end) {
-        stages[lastIdx].status = 'active'
-        stages[lastIdx].progress = 95
-        stages[lastIdx].elapsed = Math.floor(elapsedSec - boundaries[lastIdx].start)
+      const lastStage = stages[stages.length - 1]
+      const lastBound = boundaries[boundaries.length - 1]
+      if (lastStage && lastBound && elapsedSec >= lastBound.end) {
+        lastStage.status = 'active'
+        lastStage.progress = 95
+        lastStage.elapsed = Math.floor(elapsedSec - lastBound.start)
       }
     }, 500)
   }
@@ -112,19 +115,19 @@ export function useSearch() {
     totalElapsed.value = Math.floor((Date.now() - startTime) / 1000)
 
     if (success) {
-      // 搜索成功：把所有阶段标记完成
       let cumulative = 0
       for (let i = 0; i < stages.length; i++) {
-        const estimated = STAGE_DEFS[i].estimatedSeconds
-        if (stages[i].status !== 'completed') {
-          // 按比例分配实际耗时
-          stages[i].elapsed = i === stages.length - 1
+        const s = stages[i]
+        const def = STAGE_DEFS[i]
+        if (!s || !def) continue
+        if (s.status !== 'completed') {
+          s.elapsed = i === stages.length - 1
             ? Math.max(totalElapsed.value - cumulative, 0)
-            : estimated
+            : def.estimatedSeconds
         }
-        stages[i].status = 'completed'
-        stages[i].progress = 100
-        cumulative += stages[i].elapsed
+        s.status = 'completed'
+        s.progress = 100
+        cumulative += s.elapsed
       }
     }
   }
