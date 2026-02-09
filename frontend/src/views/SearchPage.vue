@@ -22,6 +22,7 @@
         :stage="stage"
       />
       <SearchPagination
+        v-if="!loading && results.length > 0"
         :page="page"
         :page-size="pageSize"
         :total="total"
