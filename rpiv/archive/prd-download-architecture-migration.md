@@ -1,9 +1,9 @@
 ---
 description: "产品需求文档: 下载架构迁移（IPFS → Anna's Archive 跳转）"
-status: completed
+status: archived
 created_at: 2026-02-08T12:00:00
-updated_at: 2026-02-08T12:45:00
-archived_at: null
+updated_at: 2026-02-09T17:00:00
+archived_at: 2026-02-09T17:00:00
 ---
 
 # 下载架构迁移：IPFS → Anna's Archive 跳转

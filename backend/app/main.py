@@ -55,21 +55,13 @@ async def lifespan(app: FastAPI):
         logger.exception("数据库初始化失败")
         logger.warning("应用将继续启动，但数据库功能不可用")
 
-    # 3. 初始化 Meilisearch 客户端
+    # 3. 初始化 DuckDB 搜索服务
     try:
-        logger.info("正在初始化 Meilisearch 客户端...")
+        logger.info("正在初始化 DuckDB 搜索服务...")
         await search_service.init()
-        logger.info("Meilisearch 客户端初始化成功")
+        logger.info("DuckDB 搜索服务初始化成功")
     except Exception:
-        logger.exception("Meilisearch 客户端初始化失败")
-
-    # 4. 配置 Meilisearch 索引
-    try:
-        logger.info("正在配置 Meilisearch 索引...")
-        await search_service.configure_index()
-        logger.info("Meilisearch 索引配置完成")
-    except Exception as e:
-        logger.warning("Meilisearch 索引配置失败（索引可能不存在）: %s", e)
+        logger.exception("DuckDB 搜索服务初始化失败")
 
     total_startup = time.time() - _start_time
     logger.info("EasyBook API 启动完成！总耗时: %.2fs，监听端口: %s",
@@ -82,9 +74,9 @@ async def lifespan(app: FastAPI):
 
     try:
         await search_service.close()
-        logger.info("Meilisearch 客户端已关闭")
+        logger.info("DuckDB 搜索服务已关闭")
     except Exception as e:
-        logger.exception("Meilisearch 关闭失败: %s", e)
+        logger.exception("DuckDB 搜索服务关闭失败: %s", e)
 
     try:
         await close_db()

@@ -1,7 +1,6 @@
 import logging
 
 from fastapi import APIRouter, HTTPException, Query
-from meilisearch_python_sdk.errors import MeilisearchError
 
 from app.schemas.search import BookFormat, BookResult, SearchResponse
 from app.services.search_service import search_service
@@ -21,9 +20,9 @@ async def search_books(
     logger.info("收到搜索请求: q=%s, page=%d, page_size=%d", q, page, page_size)
     try:
         result = await search_service.search(q, page, page_size)
-    except (MeilisearchError, ConnectionError, TimeoutError) as e:
-        logger.error("搜索失败: query=%s, error=%s", q, e, exc_info=True)
-        raise HTTPException(status_code=503, detail="Search service unavailable")
+    except (RuntimeError, OSError) as e:
+        logger.error("搜索服务不可用: query=%s, error=%s: %s", q, type(e).__name__, e)
+        raise HTTPException(status_code=503, detail="搜索服务暂时不可用，请稍后重试")
     except Exception:
         logger.exception("搜索时发生未预期错误: query=%s", q)
         raise HTTPException(status_code=500, detail="Internal search error")
@@ -57,7 +56,22 @@ async def search_books(
         else:
             merged[merge_key]["formats"].append(fmt)
 
-    results = [BookResult(**item) for item in merged.values()]
+    q_lower = q.strip().lower()
+
+    def relevance_key(item: dict) -> tuple:
+        title = (item.get("title") or "").lower()
+        if title == q_lower:
+            rank = 0
+        elif title.startswith(q_lower):
+            rank = 1
+        elif q_lower in title:
+            rank = 2
+        else:
+            rank = 3
+        return (rank, len(title))
+
+    sorted_items = sorted(merged.values(), key=relevance_key)
+    results = [BookResult(**item) for item in sorted_items]
 
     response = SearchResponse(
         total=result["total_hits"],

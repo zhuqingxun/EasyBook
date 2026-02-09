@@ -1,9 +1,9 @@
 ---
 description: "功能实施计划: download-architecture-migration"
-status: completed
+status: archived
 created_at: 2026-02-08T12:30:00
-updated_at: 2026-02-08T13:30:00
-archived_at: null
+updated_at: 2026-02-09T17:00:00
+archived_at: 2026-02-09T17:00:00
 related_files:
   - rpiv/requirements/prd-download-architecture-migration.md
 ---

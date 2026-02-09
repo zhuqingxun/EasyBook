@@ -19,6 +19,7 @@ postgres_data/
 
 # Logs
 logs/
+*.log
 
 # IDE
 .vscode/
@@ -31,6 +32,7 @@ logs/
 
 # Data files
 data/
+*.db
 
 # Obsidian
 .obsidian/

@@ -28,4 +28,4 @@ class SearchResponse(BaseModel):
 class HealthResponse(BaseModel):
     status: str
     database: str
-    meilisearch: str
+    duckdb: str

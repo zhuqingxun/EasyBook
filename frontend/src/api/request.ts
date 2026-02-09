@@ -5,7 +5,7 @@ console.log('[HTTP] 创建 axios 实例, baseURL:', baseURL)
 
 const http = axios.create({
   baseURL,
-  timeout: 10000,
+  timeout: 60000,
 })
 
 http.interceptors.request.use(

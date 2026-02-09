@@ -1,6 +1,10 @@
-import { ref } from 'vue'
+import { ref, onUnmounted } from 'vue'
 import { searchBooks } from '@/api/modules/search'
 import type { BookResult } from '@/types/search'
+
+const PROGRESS_DURATION = 60000
+const PROGRESS_INTERVAL = 300
+const PROGRESS_MAX = 95
 
 export function useSearch() {
   const query = ref('')
@@ -11,6 +15,34 @@ export function useSearch() {
   const loading = ref(false)
   const error = ref<string | null>(null)
   const hasSearched = ref(false)
+  const progress = ref(0)
+
+  let progressTimer: ReturnType<typeof setInterval> | null = null
+
+  function startProgress() {
+    progress.value = 0
+    const step = (PROGRESS_MAX * PROGRESS_INTERVAL) / PROGRESS_DURATION
+    progressTimer = setInterval(() => {
+      if (progress.value < PROGRESS_MAX) {
+        progress.value = Math.min(progress.value + step, PROGRESS_MAX)
+      }
+    }, PROGRESS_INTERVAL)
+  }
+
+  function stopProgress() {
+    if (progressTimer) {
+      clearInterval(progressTimer)
+      progressTimer = null
+    }
+    progress.value = 100
+  }
+
+  onUnmounted(() => {
+    if (progressTimer) {
+      clearInterval(progressTimer)
+      progressTimer = null
+    }
+  })
 
   const search = async () => {
     if (!query.value.trim()) {
@@ -21,6 +53,7 @@ export function useSearch() {
     console.log(`[Search] 开始搜索: q="${query.value}", page=${page.value}, pageSize=${pageSize.value}`)
     loading.value = true
     error.value = null
+    startProgress()
 
     try {
       const data = await searchBooks({
@@ -40,6 +73,7 @@ export function useSearch() {
       hasSearched.value = true
       console.error('[Search] 搜索失败:', msg, e)
     } finally {
+      stopProgress()
       loading.value = false
     }
   }
@@ -59,6 +93,7 @@ export function useSearch() {
     loading,
     error,
     hasSearched,
+    progress,
     search,
     changePage,
   }

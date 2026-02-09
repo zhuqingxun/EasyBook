@@ -15,6 +15,9 @@ COPY pyproject.toml uv.lock* ./
 # 安装依赖
 RUN uv sync --frozen --no-dev
 
+# 创建 data 目录（Volume 挂载点）
+RUN mkdir -p /app/data
+
 # 复制应用代码
 COPY app/ ./app/
 COPY etl/ ./etl/

@@ -12,9 +12,10 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 class Settings(BaseSettings):
     # 数据库
     DATABASE_URL: str = "postgresql+asyncpg://easybook:easybook@localhost:5432/easybook"
-    # Meilisearch
-    MEILI_URL: str = "http://localhost:7700"
-    MEILI_MASTER_KEY: str = ""
+    # DuckDB
+    DUCKDB_PARQUET_PATH: str = "./data/books.parquet"
+    DUCKDB_MEMORY_LIMIT: str = "256MB"
+    DUCKDB_THREADS: int = 2
     # CORS
     CORS_ORIGINS: List[str] = ["http://localhost:3000"]
     # 应用配置

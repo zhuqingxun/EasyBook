@@ -30,7 +30,8 @@ INDEX_NAME = "books"
 DEFAULT_BATCH_SIZE = 200000
 DEFAULT_MAX_PENDING = 10
 DEFAULT_CHECKPOINT_FILE = "data/sync_meilisearch.checkpoint"
-TASK_TIMEOUT_MS = 600_000  # 单个任务等待超时 10 分钟
+TASK_TIMEOUT_MS = 1_800_000  # 文档批次任务等待超时 30 分钟
+SETTINGS_TIMEOUT_MS = 3_600_000  # settings update 任务等待超时 1 小时（大量文档时重建索引耗时长）
 
 
 def _save_checkpoint(checkpoint_path: Path, last_id: int) -> None:
@@ -77,10 +78,20 @@ def sync(
     index = meili_client.index(INDEX_NAME)
 
     # 导入阶段：禁用索引属性，避免每批重建索引
-    index.update_searchable_attributes(["*"])
-    index.update_filterable_attributes([])
-    index.update_sortable_attributes([])
-    logger.info("已临时禁用索引属性（导入模式）")
+    # 必须逐个等待完成，否则后续文档批次会被阻塞在 settings update 后面
+    logger.info("正在禁用索引属性（导入模式）...")
+    for label, task_info in [
+        ("searchable", index.update_searchable_attributes(["*"])),
+        ("filterable", index.update_filterable_attributes([])),
+        ("sortable", index.update_sortable_attributes([])),
+    ]:
+        meili_client.wait_for_task(
+            task_info.task_uid,
+            timeout_in_ms=SETTINGS_TIMEOUT_MS,
+            raise_for_status=True,
+        )
+        logger.info("  %s 属性已禁用 (task_uid=%d)", label, task_info.task_uid)
+    logger.info("索引属性已全部禁用，开始文档导入")
 
     # 初始化数据库
     engine = create_engine(settings.sync_database_url)
@@ -198,7 +209,7 @@ def sync(
     task2 = index.update_filterable_attributes(["extension", "language"])
     task3 = index.update_sortable_attributes(["filesize"])
     for task in [task1, task2, task3]:
-        meili_client.wait_for_task(task.task_uid, timeout_in_ms=TASK_TIMEOUT_MS)
+        meili_client.wait_for_task(task.task_uid, timeout_in_ms=SETTINGS_TIMEOUT_MS)
     logger.info("索引属性已恢复")
 
     elapsed = time.monotonic() - start_time

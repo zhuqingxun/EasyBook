@@ -2,8 +2,8 @@ import pytest
 
 
 @pytest.fixture
-def sample_meilisearch_hits():
-    """模拟 Meilisearch 搜索返回的 hits"""
+def sample_search_hits():
+    """模拟搜索返回的 hits（DuckDB 和 Meilisearch 共用格式）"""
     return [
         {
             "id": "abc123def456",
@@ -36,3 +36,9 @@ def sample_meilisearch_hits():
             "publisher": "",
         },
     ]
+
+
+# 向后兼容别名
+@pytest.fixture
+def sample_meilisearch_hits(sample_search_hits):
+    return sample_search_hits
