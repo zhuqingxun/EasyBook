@@ -17,9 +17,8 @@
         :loading="loading"
         :has-searched="hasSearched"
         :error="error"
-        :progress="progress"
-        :elapsed="elapsed"
-        :stage="stage"
+        :stages="stages"
+        :total-elapsed="totalElapsed"
       />
       <SearchPagination
         v-if="!loading && results.length > 0"
@@ -42,7 +41,7 @@ import { useSearch } from '@/composables/useSearch'
 
 const route = useRoute()
 const router = useRouter()
-const { query, results, total, page, pageSize, loading, error, hasSearched, progress, elapsed, stage, search, changePage } =
+const { query, results, total, page, pageSize, loading, error, hasSearched, stages, totalElapsed, search, changePage } =
   useSearch()
 
 function handleSearch() {

@@ -1,19 +1,31 @@
-import { ref, computed, onUnmounted } from 'vue'
+import { ref, reactive, onUnmounted } from 'vue'
 import { searchBooks } from '@/api/modules/search'
 import type { BookResult } from '@/types/search'
 
-const PROGRESS_DURATION = 180000
-const PROGRESS_INTERVAL = 300
-const PROGRESS_MAX = 95
-const ELAPSED_INTERVAL = 1000
+export interface SearchStage {
+  label: string
+  estimatedSeconds: number
+  status: 'pending' | 'active' | 'completed'
+  progress: number
+  elapsed: number
+}
 
-const STAGE_THRESHOLDS = [
-  { seconds: 0, label: '正在连接搜索服务...' },
-  { seconds: 5, label: '正在扫描数据库...' },
-  { seconds: 15, label: '正在匹配 5900 万条记录...' },
-  { seconds: 40, label: '正在整理搜索结果...' },
-  { seconds: 60, label: '查询时间较长，请耐心等待...' },
-] as const
+const STAGE_DEFS = [
+  { label: '连接搜索服务', estimatedSeconds: 3 },
+  { label: '扫描数据库', estimatedSeconds: 12 },
+  { label: '匹配 5900 万条记录', estimatedSeconds: 35 },
+  { label: '整理搜索结果', estimatedSeconds: 15 },
+]
+
+function createStages(): SearchStage[] {
+  return STAGE_DEFS.map((d) => ({
+    label: d.label,
+    estimatedSeconds: d.estimatedSeconds,
+    status: 'pending' as const,
+    progress: 0,
+    elapsed: 0,
+  }))
+}
 
 export function useSearch() {
   const query = ref('')
@@ -24,60 +36,105 @@ export function useSearch() {
   const loading = ref(false)
   const error = ref<string | null>(null)
   const hasSearched = ref(false)
-  const progress = ref(0)
-  const elapsed = ref(0)
+  const totalElapsed = ref(0)
+  const stages = reactive<SearchStage[]>(createStages())
 
-  const stage = computed(() => {
-    let current: string = STAGE_THRESHOLDS[0].label
-    for (const t of STAGE_THRESHOLDS) {
-      if (elapsed.value >= t.seconds) {
-        current = t.label
-      }
+  let tickTimer: ReturnType<typeof setInterval> | null = null
+  let startTime = 0
+
+  function resetStages() {
+    const fresh = createStages()
+    for (let i = 0; i < stages.length; i++) {
+      stages[i].status = fresh[i].status
+      stages[i].progress = fresh[i].progress
+      stages[i].elapsed = fresh[i].elapsed
     }
-    return current
-  })
-
-  let progressTimer: ReturnType<typeof setInterval> | null = null
-  let elapsedTimer: ReturnType<typeof setInterval> | null = null
+  }
 
   function startProgress() {
-    progress.value = 0
-    elapsed.value = 0
-    const step = (PROGRESS_MAX * PROGRESS_INTERVAL) / PROGRESS_DURATION
-    progressTimer = setInterval(() => {
-      if (progress.value < PROGRESS_MAX) {
-        progress.value = Math.min(progress.value + step, PROGRESS_MAX)
+    resetStages()
+    totalElapsed.value = 0
+    startTime = Date.now()
+
+    // 预计算每个阶段的起止时间
+    let cumulative = 0
+    const boundaries = STAGE_DEFS.map((d) => {
+      const start = cumulative
+      cumulative += d.estimatedSeconds
+      return { start, end: cumulative }
+    })
+
+    // 激活第一个阶段
+    stages[0].status = 'active'
+
+    tickTimer = setInterval(() => {
+      const elapsedSec = (Date.now() - startTime) / 1000
+      totalElapsed.value = Math.floor(elapsedSec)
+
+      for (let i = 0; i < stages.length; i++) {
+        const b = boundaries[i]
+
+        if (elapsedSec >= b.end) {
+          // 已超过该阶段预计结束时间 → 完成
+          if (stages[i].status !== 'completed') {
+            stages[i].status = 'completed'
+            stages[i].progress = 100
+            stages[i].elapsed = stages[i].estimatedSeconds
+          }
+        } else if (elapsedSec >= b.start) {
+          // 正在此阶段
+          if (stages[i].status === 'pending') {
+            stages[i].status = 'active'
+          }
+          const stageElapsed = elapsedSec - b.start
+          const duration = b.end - b.start
+          stages[i].elapsed = Math.floor(stageElapsed)
+          // 进度最高到 95%，防止卡在 99%
+          stages[i].progress = Math.min(Math.round((stageElapsed / duration) * 100), 95)
+        }
       }
-    }, PROGRESS_INTERVAL)
-    elapsedTimer = setInterval(() => {
-      elapsed.value += 1
-    }, ELAPSED_INTERVAL)
+
+      // 如果所有预定阶段都完成了，最后一个阶段保持 active 状态持续计时
+      const lastIdx = stages.length - 1
+      if (elapsedSec >= boundaries[lastIdx].end) {
+        stages[lastIdx].status = 'active'
+        stages[lastIdx].progress = 95
+        stages[lastIdx].elapsed = Math.floor(elapsedSec - boundaries[lastIdx].start)
+      }
+    }, 500)
   }
 
-  function stopProgress() {
-    if (progressTimer) {
-      clearInterval(progressTimer)
-      progressTimer = null
+  function stopProgress(success: boolean) {
+    if (tickTimer) {
+      clearInterval(tickTimer)
+      tickTimer = null
     }
-    if (elapsedTimer) {
-      clearInterval(elapsedTimer)
-      elapsedTimer = null
+    totalElapsed.value = Math.floor((Date.now() - startTime) / 1000)
+
+    if (success) {
+      // 搜索成功：把所有阶段标记完成
+      let cumulative = 0
+      for (let i = 0; i < stages.length; i++) {
+        const estimated = STAGE_DEFS[i].estimatedSeconds
+        if (stages[i].status !== 'completed') {
+          // 按比例分配实际耗时
+          stages[i].elapsed = i === stages.length - 1
+            ? Math.max(totalElapsed.value - cumulative, 0)
+            : estimated
+        }
+        stages[i].status = 'completed'
+        stages[i].progress = 100
+        cumulative += stages[i].elapsed
+      }
     }
-    progress.value = 100
   }
 
-  function clearTimers() {
-    if (progressTimer) {
-      clearInterval(progressTimer)
-      progressTimer = null
+  onUnmounted(() => {
+    if (tickTimer) {
+      clearInterval(tickTimer)
+      tickTimer = null
     }
-    if (elapsedTimer) {
-      clearInterval(elapsedTimer)
-      elapsedTimer = null
-    }
-  }
-
-  onUnmounted(clearTimers)
+  })
 
   function friendlyErrorMessage(e: unknown): string {
     if (e instanceof Error) {
@@ -97,11 +154,9 @@ export function useSearch() {
 
   const search = async () => {
     if (!query.value.trim()) {
-      console.log('[Search] 搜索词为空，跳过')
       return
     }
 
-    console.log(`[Search] 开始搜索: q="${query.value}", page=${page.value}, pageSize=${pageSize.value}`)
     loading.value = true
     error.value = null
     startProgress()
@@ -112,24 +167,23 @@ export function useSearch() {
         page: page.value,
         page_size: pageSize.value,
       })
+      stopProgress(true)
       results.value = data.results ?? []
       total.value = data.total ?? 0
       hasSearched.value = true
-      console.log(`[Search] 搜索成功: total=${data.total}, results=${results.value.length}`)
     } catch (e: unknown) {
+      stopProgress(false)
       error.value = friendlyErrorMessage(e)
       results.value = []
       total.value = 0
       hasSearched.value = true
       console.error('[Search] 搜索失败:', e)
     } finally {
-      stopProgress()
       loading.value = false
     }
   }
 
   const changePage = (newPage: number) => {
-    console.log(`[Search] 翻页: ${page.value} -> ${newPage}`)
     page.value = newPage
     search()
   }
@@ -143,9 +197,8 @@ export function useSearch() {
     loading,
     error,
     hasSearched,
-    progress,
-    elapsed,
-    stage,
+    stages,
+    totalElapsed,
     search,
     changePage,
   }
