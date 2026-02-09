@@ -24,7 +24,6 @@ declare module 'vue' {
     NMessageProvider: typeof import('naive-ui')['NMessageProvider']
     NPagination: typeof import('naive-ui')['NPagination']
     NPopover: typeof import('naive-ui')['NPopover']
-    NProgress: typeof import('naive-ui')['NProgress']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     SearchBox: typeof import('./components/SearchBox.vue')['default']

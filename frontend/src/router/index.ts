@@ -14,6 +14,11 @@ const router = createRouter({
       name: 'Search',
       component: () => import('@/views/SearchPage.vue'),
     },
+    {
+      path: '/admin',
+      name: 'Admin',
+      component: () => import('@/views/AdminPage.vue'),
+    },
   ],
 })
 

@@ -28,6 +28,10 @@ class Settings(BaseSettings):
     DEBUG: bool = False
     LOG_LEVEL: str = "INFO"
     LOG_FILE: str = ""
+    # 管理面板
+    ADMIN_PASSWORD: str = ""
+    STATS_FILE_PATH: str = "./data/stats.json"
+    CACHE_MAX_SIZE: int = 500
 
     @field_validator("DATABASE_URL", mode="before")
     @classmethod

@@ -1,9 +1,12 @@
 import logging
+import time
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 
 from app.schemas.search import BookFormat, BookResult, SearchResponse
+from app.services.cache_service import search_cache
 from app.services.search_service import search_service
+from app.services.stats_service import stats_service
 
 logger = logging.getLogger(__name__)
 
@@ -12,12 +15,25 @@ router = APIRouter()
 
 @router.get("/search", response_model=SearchResponse)
 async def search_books(
+    request: Request,
     q: str = Query(..., min_length=1, max_length=200, description="搜索关键词"),
     page: int = Query(1, ge=1, description="页码"),
     page_size: int = Query(20, ge=1, le=100, description="每页条数"),
 ):
     """搜索电子书"""
     logger.info("收到搜索请求: q=%s, page=%d, page_size=%d", q, page, page_size)
+    start_time = time.time()
+    client_ip = request.client.host if request.client else "unknown"
+
+    # 检查缓存
+    cached = search_cache.get(q, page, page_size)
+    if cached is not None:
+        elapsed = time.time() - start_time
+        stats_service.record_search(q, elapsed, client_ip)
+        logger.info("搜索缓存命中: q=%s, elapsed=%.3fs", q, elapsed)
+        return cached
+
+    # 未命中，查询 DuckDB
     try:
         result = await search_service.search(q, page, page_size)
     except (RuntimeError, OSError) as e:
@@ -84,8 +100,16 @@ async def search_books(
         results=results,
         total_books=len(results),
     )
+
+    # 写入缓存（存序列化后的 dict 以便直接返回）
+    response_dict = response.model_dump()
+    search_cache.put(q, page, page_size, response_dict)
+
+    elapsed = time.time() - start_time
+    stats_service.record_search(q, elapsed, client_ip)
+
     logger.info(
-        "搜索响应: q=%s, total=%d, total_books=%d, page=%d",
-        q, response.total, response.total_books, response.page,
+        "搜索响应: q=%s, total=%d, total_books=%d, page=%d, elapsed=%.2fs",
+        q, response.total, response.total_books, response.page, elapsed,
     )
     return response
