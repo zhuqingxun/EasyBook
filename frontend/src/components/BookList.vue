@@ -10,7 +10,8 @@
           status="success"
           processing
         />
-        <p class="progress-hint">正在搜索，请耐心等待...</p>
+        <p class="progress-stage">{{ stage }}</p>
+        <p class="progress-elapsed">已等待 {{ elapsed }} 秒</p>
       </div>
     </template>
     <template v-else-if="results.length > 0">
@@ -33,6 +34,8 @@ defineProps<{
   hasSearched: boolean
   error: string | null
   progress: number
+  elapsed: number
+  stage: string
 }>()
 </script>
 
@@ -45,10 +48,17 @@ defineProps<{
   padding: 32px 0;
 }
 
-.progress-hint {
-  color: #999;
-  font-size: 13px;
+.progress-stage {
+  color: #666;
+  font-size: 14px;
   text-align: center;
   margin: 12px 0 0 0;
+}
+
+.progress-elapsed {
+  color: #aaa;
+  font-size: 12px;
+  text-align: center;
+  margin: 6px 0 0 0;
 }
 </style>

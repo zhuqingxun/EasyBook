@@ -72,10 +72,6 @@ function getDownloadSources(fmt: BookFormat): DownloadSource[] {
       url: `${ANNAS_ARCHIVE_URL}/slow_download/${md5}/0/0`,
     },
     {
-      name: '鸠摩搜索 (搜索)',
-      url: 'https://www.jiumodiary.com/',
-    },
-    {
       name: '24h搜书 (搜索)',
       url: `https://24hbook.store/search?keyword=${encodeURIComponent(props.book.title)}`,
     },

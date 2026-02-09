@@ -38,18 +38,18 @@ pnpm build                              # 生产构建（先 vue-tsc 类型检�
 
 ## Architecture
 
-BFF 架构，前后端分离。搜索基于 DuckDB 查询 Parquet 文件。
+BFF 架构，前后端分离。搜索基于 DuckDB httpfs 远程查询华为云 OBS 上的 Parquet 文件。
 
 ```
-Vue3 前端 (:3000) → FastAPI 后端 (:8000) → DuckDB (查询 Parquet 文件)
+Vue3 前端 (:3000) → FastAPI 后端 (:8000) → DuckDB httpfs → 华为云 OBS (s3://easybook-parquet/books.parquet)
 ```
 
 ### Backend (`backend/app/`)
 - **`main.py`** — FastAPI app 入口，lifespan 管理 DuckDB 搜索服务初始化
-- **`config.py`** — Pydantic Settings，从 `.env` 读取配置（DUCKDB_PARQUET_PATH、DUCKDB_MEMORY_LIMIT、DUCKDB_THREADS）
-- **`services/search_service.py`** — 核心搜索逻辑：DuckDB ILIKE 查询 Parquet 文件，按 `(title, author)` 匹配，前端负责多格式合并
+- **`config.py`** — Pydantic Settings，从 `.env` 读取配置（DuckDB、OBS S3 凭证等）
+- **`services/search_service.py`** — 核心搜索逻辑：双模式（本地/远程 OBS），DuckDB httpfs + ILIKE 查询，前端负责多格式合并
 - **`api/v1/search.py`** — `GET /api/v1/search?q=&page=&page_size=`，返回 `SearchResponse`
-- **`api/v1/health.py`** — 健康检查，验证 Parquet 文件存在性和 DuckDB 连接
+- **`api/v1/health.py`** — 健康检查，验证 SearchService 初始化状态
 
 ### ETL (`backend/etl/`)
 - **`import_annas.py`** — 解压 JSONL.zst → 清洗过滤 → OpenCC 简繁转换 → 批量写入 PostgreSQL
@@ -63,10 +63,11 @@ Vue3 前端 (:3000) → FastAPI 后端 (:8000) → DuckDB (查询 Parquet 文件
 
 ## Key Technical Decisions
 
-- **DuckDB + Parquet**：替代 Meilisearch + PostgreSQL 的搜索方案，降低部署资源占用
-- **DuckDB 每请求独立连接**：DuckDB 非线程安全，每次搜索创建新连接
+- **DuckDB httpfs + 华为云 OBS**：DuckDB 通过 httpfs 扩展远程查询 OBS 上的 Parquet（S3 协议），无需本地存储
+- **SearchService 双模式**：优先本地 Parquet 文件，检测到 OBS 凭证时自动切换远程模式
+- **DuckDB 每请求独立连接**：DuckDB 非线程安全，每次搜索创建新连接（远程模式下加载 httpfs）
 - **asyncio.to_thread()**：桥接同步 DuckDB 查询与 async FastAPI
-- **ILIKE 子串匹配**：59M 行约 15-38 秒（取决于线程数），已知性能瓶颈，接受换取部署便捷性
+- **ILIKE 子串匹配**：远程 OBS ~55-63 秒/次，本地 ~15-38 秒（取决于线程数），已知性能瓶颈
 - **OpenCC 初始化**：参数用 `"t2s"` 不是 `"t2s.json"`，SDK 内部自动加后缀
 - **JSONL.zst 解压**：必须设置 `max_window_size=2**31`
 - **Vue3 + Naive UI**：不能在 prop 上直接用 `v-model:value="propName"`，需用 `:value` + `@update:value`
@@ -84,11 +85,11 @@ Railway 服务与角色映射：
 | `easybook-frontend` | 前端 (Vue3 + nginx) | `/frontend` | Dockerfile | 80 |
 
 - Railway 原生支持 monorepo，通过 Root Directory 设置自动检测子目录 Dockerfile
-- 后端环境变量：`DUCKDB_PARQUET_PATH`（Parquet 文件路径）、`DUCKDB_MEMORY_LIMIT`、`DUCKDB_THREADS`、`CORS_ORIGINS`
+- 后端环境变量：`DUCKDB_PARQUET_PATH`、`DUCKDB_MEMORY_LIMIT`、`DUCKDB_THREADS`、`CORS_ORIGINS`、`OBS_ACCESS_KEY_ID`、`OBS_SECRET_ACCESS_KEY`、`OBS_ENDPOINT`、`OBS_BUCKET`、`OBS_PARQUET_KEY`
 - 前端构建参数：`VITE_API_BASE_URL`（通过 Dockerfile ARG 在构建时注入后端 URL）
 - 后端 Dockerfile 必须设置 `ENV PYTHONUNBUFFERED=1`，确保日志实时输出
 - 推送 master 分支自动触发重新部署
-- **Parquet 文件部署**：需通过 Railway Volume 挂载 `/app/data`，手动上传 `books.parquet`
+- **Parquet 文件存储**：华为云 OBS `s3://easybook-parquet/books.parquet`（新加坡 ap-southeast-3，与 Railway 同区）
 
 ## Development Notes
 
@@ -96,7 +97,7 @@ Railway 服务与角色映射：
 - **后端端口**：容器内通过 `${PORT:-8080}` 动态控制，本地开发用 8000，Railway 用 8080
 - **速率限制**：后端集成 slowapi，提供 API 限流
 - **JSON 序列化**：使用 orjson 高性能序列化
-- **Parquet 数据**：`backend/data/books.parquet`（6.8GB，59M 条记录），已 .gitignore 排除
+- **Parquet 数据**：6.8GB，59M 条记录，存储于华为云 OBS（本地副本 `backend/data/books.parquet` 已 .gitignore 排除）
 
 ## Code Conventions
 
@@ -109,6 +110,6 @@ Railway 服务与角色映射：
 
 ## Data Flow
 
-搜索流程：用户输入查询 → FastAPI 接收 → DuckDB 通过 ILIKE 在 Parquet 文件中搜索 title/author → 返回匹配记录。前端按 `(title.lower(), author.lower())` 分组，同一本书的不同格式（epub/pdf/mobi/azw3）合并为 `formats` 数组。
+搜索流程：用户输入查询 → FastAPI 接收 → DuckDB 通过 httpfs 扩展远程查询 OBS 上的 Parquet（ILIKE 匹配 title/author） → 返回匹配记录。前端按 `(title.lower(), author.lower())` 分组，同一本书的不同格式（epub/pdf/mobi/azw3）合并为 `formats` 数组。
 
 ETL 流程：JSONL.zst → PostgreSQL（清洗、过滤、OpenCC 简繁转换） → Parquet（DuckDB postgres 扩展导出）。仅保留 epub/pdf/mobi/azw3 格式、中英文、有 MD5 的记录。

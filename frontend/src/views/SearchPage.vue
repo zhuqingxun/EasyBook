@@ -18,6 +18,8 @@
         :has-searched="hasSearched"
         :error="error"
         :progress="progress"
+        :elapsed="elapsed"
+        :stage="stage"
       />
       <SearchPagination
         :page="page"
@@ -39,7 +41,7 @@ import { useSearch } from '@/composables/useSearch'
 
 const route = useRoute()
 const router = useRouter()
-const { query, results, total, page, pageSize, loading, error, hasSearched, progress, search, changePage } =
+const { query, results, total, page, pageSize, loading, error, hasSearched, progress, elapsed, stage, search, changePage } =
   useSearch()
 
 function handleSearch() {
