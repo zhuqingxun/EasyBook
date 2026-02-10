@@ -16,7 +16,7 @@ class SearchService:
         self._use_remote: bool = False
 
     async def init(self):
-        """初始化搜索服务：优先本地文件，否则尝试远程 OBS"""
+        """初始化搜索服务：优先本地文件，否则尝试远程 S3 兼容存储"""
         self.parquet_path = settings.DUCKDB_PARQUET_PATH
         local_path = Path(self.parquet_path)
 
@@ -28,24 +28,24 @@ class SearchService:
                 self.parquet_path, count,
             )
             self._initialized = True
-        elif settings.OBS_ACCESS_KEY_ID and settings.OBS_SECRET_ACCESS_KEY:
-            # 远程 OBS 模式
+        elif settings.S3_ACCESS_KEY_ID and settings.S3_SECRET_ACCESS_KEY:
+            # 远程 S3 兼容存储模式（Cloudflare R2 / 华为云 OBS 等）
             self._use_remote = True
             self.parquet_path = (
-                f"s3://{settings.OBS_BUCKET}/{settings.OBS_PARQUET_KEY}"
+                f"s3://{settings.S3_BUCKET}/{settings.S3_PARQUET_KEY}"
             )
             try:
                 count = await asyncio.to_thread(self._get_record_count)
                 logger.info(
-                    "DuckDB 搜索服务初始化成功（远程 OBS）: parquet=%s, records=%d",
+                    "DuckDB 搜索服务初始化成功（远程 S3）: parquet=%s, records=%d",
                     self.parquet_path, count,
                 )
                 self._initialized = True
             except Exception as e:
-                logger.error("远程 OBS Parquet 初始化失败: %s", e)
+                logger.error("远程 S3 Parquet 初始化失败: %s", e)
         else:
             logger.warning(
-                "Parquet 文件不存在且未配置 OBS 凭证，搜索功能不可用"
+                "Parquet 文件不存在且未配置 S3 凭证，搜索功能不可用"
             )
 
     def _create_connection(self) -> duckdb.DuckDBPyConnection:
@@ -57,13 +57,13 @@ class SearchService:
         if self._use_remote:
             conn.install_extension("httpfs")
             conn.load_extension("httpfs")
-            conn.execute(f"SET s3_endpoint='{settings.OBS_ENDPOINT}'")
-            conn.execute(f"SET s3_access_key_id='{settings.OBS_ACCESS_KEY_ID}'")
+            conn.execute(f"SET s3_endpoint='{settings.S3_ENDPOINT}'")
+            conn.execute(f"SET s3_access_key_id='{settings.S3_ACCESS_KEY_ID}'")
             conn.execute(
-                f"SET s3_secret_access_key='{settings.OBS_SECRET_ACCESS_KEY}'"
+                f"SET s3_secret_access_key='{settings.S3_SECRET_ACCESS_KEY}'"
             )
-            conn.execute("SET s3_url_style='vhost'")
-            conn.execute("SET s3_region='ap-southeast-3'")
+            conn.execute(f"SET s3_url_style='{settings.S3_URL_STYLE}'")
+            conn.execute(f"SET s3_region='{settings.S3_REGION}'")
         return conn
 
     async def close(self):

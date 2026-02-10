@@ -16,12 +16,14 @@ class Settings(BaseSettings):
     DUCKDB_PARQUET_PATH: str = "./data/books.parquet"
     DUCKDB_MEMORY_LIMIT: str = "256MB"
     DUCKDB_THREADS: int = 2
-    # OBS S3 兼容配置（httpfs 远程查询）
-    OBS_ACCESS_KEY_ID: str = ""
-    OBS_SECRET_ACCESS_KEY: str = ""
-    OBS_ENDPOINT: str = "obs.ap-southeast-3.myhuaweicloud.com"
-    OBS_BUCKET: str = "easybook-parquet"
-    OBS_PARQUET_KEY: str = "books.parquet"
+    # S3 兼容存储配置（httpfs 远程查询，支持华为云 OBS / Cloudflare R2 等）
+    S3_ACCESS_KEY_ID: str = ""
+    S3_SECRET_ACCESS_KEY: str = ""
+    S3_ENDPOINT: str = ""
+    S3_BUCKET: str = "easybook-parquet"
+    S3_PARQUET_KEY: str = "books.parquet"
+    S3_REGION: str = "auto"
+    S3_URL_STYLE: str = "path"
     # CORS
     CORS_ORIGINS: List[str] = ["http://localhost:3000"]
     # 应用配置
